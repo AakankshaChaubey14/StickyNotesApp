@@ -1,0 +1,9 @@
+# Allowlist: only the app source, the website and the skill are shared.
+/*
+!/.gitignore
+!/README.md
+!/app/
+!/handoff/
+!/.claude/
+/app/build/
+.DS_Store

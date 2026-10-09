@@ -1,0 +1,299 @@
+<title>Sticky Note Scrapbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,500;1,600&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: one centred column. Hero (name + how to get it) → the note in three states → three reasons.
+   A fixed sky of the app's own stars, clips and seals drifts behind everything in three depths.
+   Ivory paper page with a rose-pink brand colour; one deliberate light look, every colour set explicitly. */
+:root{
+  color-scheme:light;
+  --bg:#fbf8f1; --ink:#26211f; --muted:#6f6862; --faint:#958d85;
+  --hair:rgba(70,45,40,.1); --shell:rgba(255,255,255,.55); --core:#ffffff;
+  --pink:#cf4b7c; --pink-hi:#e8789f; --on-pink:#ffffff; --pink-soft:#fbe4ec; --rose-ink:#b8406c;
+  --display:"Geist", -apple-system, "SF Pro Display", "Helvetica Neue", sans-serif;
+  --serif:"Cormorant Garamond", "Iowan Old Style", Georgia, serif;
+  --mono:"Geist Mono", ui-monospace, Menlo, monospace;
+  --arrive:cubic-bezier(.16,1,.3,1); --snap:cubic-bezier(.23,1,.32,1); --drift:cubic-bezier(.45,0,.55,1);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{background:var(--bg)}
+body{background:var(--bg);color:var(--ink);font:400 16px/1.55 var(--display);margin:0;padding-inline:16px;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+:focus-visible{outline:2px solid var(--pink);outline-offset:3px;border-radius:8px}
+h1,h2,h3,p{margin:0}
+button{font-family:inherit}
+
+/* ── Sky: fixed, behind everything, never interactive ── */
+.sky{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.sky::before{content:"";position:absolute;inset:-20%;
+  background:radial-gradient(40% 32% at 50% 16%,rgba(232,120,159,.16),transparent 70%),
+             radial-gradient(34% 30% at 10% 84%,rgba(127,141,107,.12),transparent 70%),
+             radial-gradient(30% 26% at 92% 58%,rgba(232,120,159,.08),transparent 70%)}
+.sky::after{content:"";position:absolute;inset:0;opacity:.06;mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.bit{position:absolute;left:var(--x);top:var(--y);width:var(--w);opacity:0;animation:appear 1.6s var(--arrive) var(--in,0s) forwards}
+.bit img{display:block;width:100%;height:auto;animation:drift var(--dur) var(--drift) var(--delay) infinite alternate;will-change:transform}
+.bit.far{filter:blur(2.2px);--o:.4}
+.bit.mid{filter:blur(.6px);--o:.62}
+.bit.near{--o:.92;filter:drop-shadow(0 22px 26px rgba(70,45,40,.22))}
+@keyframes appear{to{opacity:var(--o)}}
+@keyframes drift{
+  from{transform:translate3d(0,0,0) rotate(var(--r0))}
+  to{transform:translate3d(var(--dx),var(--dy),0) rotate(var(--r1))}
+}
+
+/* ── Page ── */
+main{position:relative;z-index:1;max-width:1040px;margin:0 auto;padding-block:clamp(72px,12vh,128px) 120px;display:flex;flex-direction:column;gap:clamp(96px,14vh,152px)}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font:500 11px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted);border:1px solid var(--hair);background:rgba(255,255,255,.7);padding:8px 12px;border-radius:999px}
+.eyebrow i{width:6px;height:6px;border-radius:50%;background:var(--pink);box-shadow:0 0 0 3px var(--pink-soft)}
+
+/* Hero */
+.hero{display:flex;flex-direction:column;align-items:center;text-align:center;gap:22px}
+.hero img.icon{width:76px;height:76px;filter:drop-shadow(0 16px 24px rgba(70,45,40,.18))}
+h1{font:600 clamp(48px,8.4vw,92px)/.95 var(--display);letter-spacing:-.045em;text-wrap:balance}
+h1 em{display:block;font:italic 500 1.08em/1 var(--serif);letter-spacing:-.02em;color:var(--rose-ink)}
+.lede{font-size:clamp(17px,2vw,19px);color:var(--muted);max-width:38ch}
+
+/* Double bezel: a hairline tray holding a darker plate */
+.shell{background:var(--shell);border:1px solid var(--hair);border-radius:28px;padding:6px;box-shadow:0 30px 60px -36px rgba(110,60,70,.28)}
+.core{background:var(--core);border-radius:22px;box-shadow:inset 0 0 0 1px rgba(70,45,40,.05)}
+
+.get{width:min(100%,560px);margin-top:14px}
+.get .core{padding:22px;display:flex;flex-direction:column;align-items:center;gap:22px}
+.seg{position:relative;display:flex;gap:2px;background:#f6f1ea;border:1px solid var(--hair);border-radius:999px;padding:4px}
+.seg .ind{position:absolute;top:4px;bottom:4px;left:0;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(70,45,40,.12),0 0 0 1px rgba(70,45,40,.05);transition:transform .26s var(--snap),width .26s var(--snap)}
+.seg button{position:relative;z-index:1;border:0;background:transparent;color:var(--muted);font-size:13.5px;font-weight:500;padding:8px 16px;border-radius:999px;cursor:pointer;transition:color .16s ease}
+.seg button[aria-selected="true"]{color:var(--ink)}
+
+.panel{width:100%;display:flex;flex-direction:column;align-items:center;gap:20px;transition:opacity .2s ease,transform .3s var(--arrive)}
+@starting-style{.panel{opacity:0;transform:translateY(6px)}}
+
+.cta{display:inline-flex;align-items:center;gap:14px;padding:7px 7px 7px 24px;border-radius:999px;background:linear-gradient(180deg,var(--pink-hi),var(--pink));color:var(--on-pink);text-decoration:none;font-weight:600;font-size:16px;
+  box-shadow:0 1px 0 rgba(255,255,255,.35) inset,0 18px 36px -14px rgba(207,75,124,.55);transition:transform .16s var(--snap)}
+.cta .orb{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.22);display:grid;place-items:center;transition:transform .3s var(--snap)}
+.cta svg{width:17px;height:17px}
+.cta:active{transform:scale(.97)}
+@media (hover:hover) and (pointer:fine){.cta:hover .orb{transform:translateY(2px) scale(1.06)}}
+
+.cmd{display:flex;align-items:center;gap:12px;max-width:100%;font:13.5px/1 var(--mono);background:#f8f4ee;border:1px solid var(--hair);border-radius:12px;padding:12px 12px 12px 16px}
+.cmd span{color:var(--faint)}
+.cmd code{overflow-x:auto;white-space:nowrap;min-width:0}
+.copy{flex:none;width:32px;height:32px;border-radius:8px;border:1px solid var(--hair);background:#fff;color:var(--muted);display:grid;place-items:center;cursor:pointer;transition:color .15s ease,transform .12s var(--snap)}
+.copy:active{transform:scale(.94)}
+.copy svg{width:15px;height:15px}
+.copy.done{color:var(--pink)}
+
+.steps{list-style:none;margin:0;padding:0;width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;counter-reset:s}
+.steps li{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;font-size:13.5px;color:var(--ink);line-height:1.35;min-width:0}
+.steps li::before{flex:none;text-align:center;counter-increment:s;content:counter(s);font:500 12px/26px var(--mono);width:26px;height:26px;border-radius:50%;background:var(--pink-soft);color:var(--rose-ink)}
+.fine{font-size:12.5px;color:var(--faint);max-width:44ch}
+.say{font-family:var(--mono);font-size:12.5px;color:var(--rose-ink);background:var(--pink-soft);padding:1px 6px;border-radius:5px}
+
+/* The note in three states */
+.section-head{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center}
+h2{font:600 clamp(32px,4.6vw,48px)/1 var(--display);letter-spacing:-.035em;text-wrap:balance}
+h2 em{font:italic 500 1.1em/1 var(--serif);color:var(--rose-ink)}
+.stage .core{padding:20px}
+.stage-top{display:flex;justify-content:center;margin-bottom:20px}
+.states{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+figure{margin:0;display:flex;flex-direction:column;gap:12px;min-width:0}
+.frame{background:linear-gradient(#ecede7,#e5e8de);border-radius:16px;aspect-ratio:4/5;display:flex;align-items:center;justify-content:center;padding:14px 10px;overflow:hidden}
+.frame img,.pic img{
+  -webkit-mask-image:linear-gradient(to right,transparent,#000 var(--f,7%),#000 calc(100% - var(--f,7%)),transparent),linear-gradient(to bottom,transparent,#000 var(--f,7%),#000 calc(100% - var(--f,7%)),transparent);
+  -webkit-mask-composite:source-in;mask-composite:intersect}
+.frame img{max-width:100%;max-height:100%;height:auto;object-fit:contain;transition:opacity .18s ease,filter .18s ease,transform .3s var(--arrive)}
+.frame img.swap{opacity:0;filter:blur(3px);transform:scale(.985)}
+#s1,.pic.small img{--f:22%}
+figcaption{display:flex;justify-content:center;align-items:baseline;gap:10px}
+figcaption b{font-weight:600;font-size:15px}
+figcaption span{color:var(--muted);font-size:14px}
+
+/* Reasons */
+.reasons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.reason .core{overflow:hidden;height:100%;display:flex;flex-direction:column}
+.pic{background:linear-gradient(#ecede7,#e5e8de);height:220px;display:flex;align-items:center;justify-content:center;overflow:hidden;border-radius:22px 22px 0 0}
+.pic img{width:100%;height:100%;object-fit:cover;object-position:50% 18%}
+.pic.small img{width:auto;height:auto;max-height:76%;object-fit:contain}
+.reason .txt{padding:22px 22px 26px;display:flex;flex-direction:column;gap:8px}
+h3{font:600 19px/1.2 var(--display);letter-spacing:-.015em}
+.reason p{color:var(--muted);font-size:15px}
+
+/* One authored entrance: the hero rises out of a soft blur on load; everything else is simply there */
+.rise{animation:rise .8s var(--arrive) both;animation-delay:calc(var(--i,0) * 90ms)}
+@keyframes rise{from{opacity:0;transform:translateY(18px);filter:blur(6px)}}
+
+@media (max-width:767px){
+  main{gap:96px}
+  .steps{grid-template-columns:minmax(0,1fr);gap:14px}
+  .steps li{flex-direction:row;align-items:center;text-align:left;justify-content:flex-start}
+  .steps{width:auto;align-self:center}
+  .states,.reasons{grid-template-columns:minmax(0,1fr)}
+  .frame{aspect-ratio:auto;max-height:480px}
+  .bit.m-off{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .bit img{animation:none}
+  .bit{animation-duration:.01s}
+  .rise{animation:fade .3s ease both}
+  @keyframes fade{from{opacity:0}}
+  .seg .ind,.panel,.frame img,.cta,.cta .orb{transition-property:opacity!important}
+}
+</style>
+
+<div class="sky" aria-hidden="true" id="sky"></div>
+
+<main>
+  <section class="hero" aria-labelledby="title">
+    <img class="icon rise" src="gallery/icon.png" alt="" style="--i:0">
+    <span class="eyebrow rise" style="--i:1"><i></i>For Mac, macOS 15 or later</span>
+    <h1 id="title" class="rise" style="--i:2">Sticky Note <em>Scrapbook</em></h1>
+    <p class="lede rise" style="--i:3">A to-do note that hangs on your desktop like a page from a scrapbook.</p>
+
+    <div class="get shell rise" style="--i:4">
+      <div class="core">
+        <div class="seg" role="tablist" aria-label="How to get it">
+          <button role="tab" id="t-dl" aria-selected="true" aria-controls="p-dl">Download</button>
+          <button role="tab" id="t-cc" aria-selected="false" aria-controls="p-cc">With Claude Code</button>
+        </div>
+
+        <div class="panel" id="p-dl" role="tabpanel" aria-labelledby="t-dl">
+          <a class="cta" href="https://drive.google.com/file/d/1H9vakpmAF0tNuqYXPwX7uqqJPS-VWBzT/view" target="_blank" rel="noopener">
+            Download for Mac
+            <span class="orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12m0 0-5-5m5 5 5-5M5 20h14"/></svg></span>
+          </a>
+          <ol class="steps">
+            <li>Download Sticky&nbsp;Note.zip</li>
+            <li>Unzip, drag it into Applications</li>
+            <li>Open it</li>
+          </ol>
+          <p class="fine">If macOS says it can’t check the app: System Settings, Privacy &amp; Security, Open Anyway.</p>
+        </div>
+
+        <div class="panel" id="p-cc" role="tabpanel" aria-labelledby="t-cc" hidden>
+          <a class="cta" href="https://drive.google.com/file/d/1kj9wTCyqi48-ORnLIy_QzWYNPQ-TVX_s/view" target="_blank" rel="noopener">
+            Download the skill
+            <span class="orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12m0 0-5-5m5 5 5-5M5 20h14"/></svg></span>
+          </a>
+          <div class="cmd"><span>$</span><code id="unz">unzip ~/Downloads/"Sticky Note - Claude Code skill.zip" -d ~/.claude/skills/</code>
+            <button class="copy" type="button" data-copy="unz" aria-label="Copy command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button></div>
+          <ol class="steps">
+            <li>Download the skill</li>
+            <li>Run the command above</li>
+            <li>Tell Claude Code <span class="say">Install Sticky Note Scrapbook</span></li>
+          </ol>
+          <p class="fine">Claude builds it on your Mac, so there’s no security prompt.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="states" style="display:flex;flex-direction:column;gap:36px">
+    <div class="section-head">
+      <span class="eyebrow">Three states</span>
+      <h2 id="states">Out of sight, then <em>all there</em></h2>
+    </div>
+    <div class="stage shell">
+      <div class="core">
+        <div class="stage-top">
+          <div class="seg" role="tablist" aria-label="Look" id="looks">
+            <button role="tab" aria-selected="true" data-style="brass">Brass clip</button>
+            <button role="tab" aria-selected="false" data-style="wax">Wax seal</button>
+            <button role="tab" aria-selected="false" data-style="torn">Torn paper</button>
+          </div>
+        </div>
+        <div class="states">
+          <figure><div class="frame"><img id="s1" src="gallery/brass-1-hidden.jpg" width="136" alt="Hidden: only the clip on the desktop"></div><figcaption><b>Hidden</b><span>Just the clip</span></figcaption></figure>
+          <figure><div class="frame"><img id="s2" src="gallery/brass-2-default.jpg" width="375" alt="Default: two tasks and a count of the rest"></div><figcaption><b>Default</b><span>Two at a glance</span></figcaption></figure>
+          <figure><div class="frame"><img id="s3" src="gallery/brass-3-expanded.jpg" width="378" alt="Expanded: the whole list"></div><figcaption><b>Expanded</b><span>The whole list</span></figcaption></figure>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="why" style="display:flex;flex-direction:column;gap:36px">
+    <div class="section-head">
+      <span class="eyebrow">Why it’s nice</span>
+      <h2 id="why">Small, quiet, <em>made of paper</em></h2>
+    </div>
+    <div class="reasons">
+      <article class="reason shell"><div class="core">
+        <div class="pic small"><img src="gallery/wax-1-hidden.jpg" width="126" alt="A wax seal on the desktop"></div>
+        <div class="txt"><h3>Out of the way</h3><p>It folds down to one seal. Click it when you need your list.</p></div>
+      </div></article>
+      <article class="reason shell"><div class="core">
+        <div class="pic"><img src="gallery/torn-2-default.jpg" width="380" alt="Two tasks with a 5 more link"></div>
+        <div class="txt"><h3>Just enough at a glance</h3><p>Your next two tasks and how many wait. Paste a list to add them all.</p></div>
+      </div></article>
+      <article class="reason shell"><div class="core">
+        <div class="pic"><img src="gallery/wax-2-default.jpg" width="351" alt="Handmade paper under a sage wax seal"></div>
+        <div class="txt"><h3>Feels like paper</h3><p>Brass clip, wax seal or torn paper with stitched stars. Switch from the ☰ button.</p></div>
+      </div></article>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  // ── Sky: three depths of the app's own art. far = small, soft, slow; near = big, sharp, quicker.
+  var art = {star:'gallery/star.png', clip:'gallery/clip.png', seal:'gallery/seal.png'};
+  var bits = [
+    // [art, depth, x%, y%, width px, dx, dy, rot from, rot to, seconds, show on phones]
+    ['star','far',  22, 8,  34,  30, 40, -10, 25, 52, 1], ['seal','far', 70, 14, 40, -26, 34, 0, -20, 58, 0],
+    ['clip','far',  40, 46, 56,  34,-30,  6, -8, 60, 0], ['star','far', 84, 78, 30, -22,-36, 12, 40, 48, 1],
+    ['seal','far',  8, 58,  36,  24,-28, -6, 14, 56, 0], ['star','far', 58, 90, 28,  20,-30, 0, 30, 50, 0],
+    ['clip','mid',  4, 24,  96,  36, 46, -14, 2, 40, 0], ['star','mid', 90, 34, 62, -40, 50, 8, 52, 36, 0],
+    ['seal','mid', 30, 72,  70,  42,-38, 10, -12, 42, 0], ['star','mid', 66, 62, 52, -34,-44, -20, 18, 38, 0],
+    ['clip','near', 82, 6, 150, -46, 58, 10, -6, 30, 0], ['seal','near', -2, 80, 132, 50,-46, -12, 10, 32, 1],
+    ['star','near', 88, 86, 108, -40,-52, 18, 64, 26, 0], ['star','near', 1, 4, 92, 44, 40, -24, 14, 28, 0]
+  ];
+  var sky = document.getElementById('sky');
+  bits.forEach(function(b, i){
+    var d = document.createElement('div');
+    d.className = 'bit ' + b[1] + (b[10] ? '' : ' m-off');
+    d.style.cssText = '--x:'+b[2]+'%;--y:'+b[3]+'%;--w:'+b[4]+'px;--in:'+(0.2 + i*0.06).toFixed(2)+'s';
+    var img = new Image(); img.src = art[b[0]]; img.alt = '';
+    img.style.cssText = '--dx:'+b[5]+'px;--dy:'+b[6]+'px;--r0:'+b[7]+'deg;--r1:'+b[8]+'deg;--dur:'+b[9]+'s;--delay:-'+(i*3.7 % b[9]).toFixed(1)+'s';
+    d.appendChild(img); sky.appendChild(d);
+  });
+
+  // ── Segmented controls with a sliding indicator
+  function segment(box, onPick){
+    var ind = document.createElement('span'); ind.className = 'ind'; box.prepend(ind);
+    var btns = box.querySelectorAll('button');
+    function move(b){ ind.style.width = b.offsetWidth + 'px'; ind.style.transform = 'translateX(' + b.offsetLeft + 'px)'; }
+    ind.style.transition = 'none'; move(box.querySelector('[aria-selected="true"]'));
+    requestAnimationFrame(function(){ requestAnimationFrame(function(){ ind.style.transition = ''; }); });
+    btns.forEach(function(b){ b.addEventListener('click', function(){
+      if (b.getAttribute('aria-selected') === 'true') return;
+      btns.forEach(function(x){ x.setAttribute('aria-selected', String(x === b)); });
+      move(b); onPick(b);
+    }); });
+    addEventListener('resize', function(){ ind.style.transition = 'none'; move(box.querySelector('[aria-selected="true"]')); requestAnimationFrame(function(){ ind.style.transition = ''; }); });
+    if (document.fonts) document.fonts.ready.then(function(){ move(box.querySelector('[aria-selected="true"]')); });
+  }
+  segment(document.querySelector('.get .seg'), function(b){
+    document.querySelectorAll('.get .panel').forEach(function(p){ p.hidden = p.id !== b.getAttribute('aria-controls'); });
+  });
+  var widths = {brass:[136,375,378], wax:[126,351,351], torn:[140,380,380]}, names = ['1-hidden','2-default','3-expanded'];
+  segment(document.getElementById('looks'), function(b){
+    var s = b.dataset.style;
+    names.forEach(function(n, i){
+      var img = document.getElementById('s'+(i+1));
+      img.classList.add('swap');
+      setTimeout(function(){
+        img.onload = function(){ img.classList.remove('swap'); };
+        img.width = widths[s][i]; img.src = 'gallery/'+s+'-'+n+'.jpg';
+      }, 140 + i*40);
+    });
+  });
+
+  // ── Copy the unzip command
+  document.querySelectorAll('.copy').forEach(function(btn){ btn.addEventListener('click', function(){
+    var el = document.getElementById(btn.dataset.copy);
+    function sel(){ var r = document.createRange(); r.selectNodeContents(el); var s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+    function ok(){ btn.classList.add('done'); setTimeout(function(){ btn.classList.remove('done'); }, 1400); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(el.textContent).then(ok, sel); else sel();
+  }); });
+})();
+</script>
