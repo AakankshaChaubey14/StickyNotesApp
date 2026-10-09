@@ -8,7 +8,7 @@ A to-do note that hangs on your Mac desktop like a page from a scrapbook. It fol
 
 ## Get it
 
-**Download:** grab `Sticky Note.zip` from [Releases](../../releases/latest), unzip it, drag **Sticky Note** into Applications and open it. If macOS says it can't check the app: System Settings → Privacy & Security → Open Anyway.
+**Download:** grab `Sticky.Note.zip` from [Releases](../../releases/latest), unzip it, drag **Sticky Note** into Applications and open it. If macOS says it can't check the app: System Settings → Privacy & Security → Open Anyway.
 
 **With Claude Code:** clone this repo, run `claude` inside it, and say *Install Sticky Note Scrapbook*. Claude builds it on your Mac with the skill in `.claude/skills/`, so there's no security prompt.
 
