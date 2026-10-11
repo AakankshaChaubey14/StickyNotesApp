@@ -19,7 +19,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleName</key><string>Sticky Note</string>
   <key>CFBundleExecutable</key><string>StickyNote</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
-  <key>CFBundleIdentifier</key><string>com.daria.stickynote.scrapbook</string>
+  <key>CFBundleIdentifier</key><string>com.aakanksha.stickynote.scrapbook</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>2.0</string>
   <key>CFBundleVersion</key><string>2</string>
