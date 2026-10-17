@@ -267,9 +267,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         store.layoutChanged = { [weak self] in DispatchQueue.main.async { self?.fitOnScreen() } }
-        stateWatch = store.$state.sink { [weak self] state in
-            guard state == .hidden else { return }
-            DispatchQueue.main.async { self?.returnHome() }
+        // sheetRect is window-local, so it doesn't change when the hidden token is dragged:
+        // check the fit on every open, not just when the note's layout changes.
+        stateWatch = store.$state.dropFirst().sink { [weak self] state in   // skip the launch value: leave the token where it was saved
+            DispatchQueue.main.async { if state == .hidden { self?.returnHome() } else { self?.fitOnScreen() } }
         }
         panel.orderFrontRegardless()
         // Transparent space around the note shouldn't swallow clicks meant for the desktop.
@@ -318,11 +319,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         glide(to: NSPoint(x: f.minX + dx, y: f.minY + dy))
     }
 
-    /// Folding back to the token returns it to where the user left it.
+    /// Folding back to the token tucks it against the nearest screen edge, measured from where
+    /// the user left it if the open note was nudged to fit.
     private func returnHome() {
-        guard let h = home else { return }
+        let target = snappedToEdge(home ?? panel.frame.origin)
         home = nil
-        glide(to: h, duration: 0.2)
+        UserDefaults.standard.set(Double(target.x), forKey: "panelX"); UserDefaults.standard.set(Double(target.y), forKey: "panelY")
+        guard abs(target.x - panel.frame.minX) > 0.5 || abs(target.y - panel.frame.minY) > 0.5 else { return }
+        glide(to: target, duration: 0.2)
+    }
+
+    /// The window origin that puts the hidden token flush against whichever screen edge it's closest to.
+    private func snappedToEdge(_ origin: NSPoint) -> NSPoint {
+        let r = store.tokenRect, margin: CGFloat = 12
+        guard r != .zero else { return origin }
+        // tokenRect is top-left based inside the window; convert to screen coordinates
+        let t = NSRect(x: origin.x + r.minX, y: origin.y + panel.frame.height - r.maxY, width: r.width, height: r.height)
+        let screen = NSScreen.screens.first { $0.frame.contains(NSPoint(x: t.midX, y: t.midY)) } ?? panel.screen ?? NSScreen.main
+        guard let vis = screen?.visibleFrame else { return origin }
+        let gaps = [t.minX - vis.minX, vis.maxX - t.maxX, vis.maxY - t.maxY, t.minY - vis.minY]   // left, right, top, bottom
+        var dx: CGFloat = 0, dy: CGFloat = 0
+        switch gaps.indices.min(by: { gaps[$0] < gaps[$1] }) {
+        case 0: dx = vis.minX + margin - t.minX
+        case 1: dx = vis.maxX - margin - t.maxX
+        case 2: dy = vis.maxY - margin - t.maxY
+        default: dy = vis.minY + margin - t.minY
+        }
+        // keep the token fully on screen along the other axis too
+        let x = t.minX + dx, y = t.minY + dy
+        dx += max(0, vis.minX + margin - x) - max(0, x + t.width - (vis.maxX - margin))
+        dy += max(0, vis.minY + margin - y) - max(0, y + t.height - (vis.maxY - margin))
+        return NSPoint(x: origin.x + dx, y: origin.y + dy)
     }
 
     private func glide(to origin: NSPoint, duration: TimeInterval = 0.3) {
