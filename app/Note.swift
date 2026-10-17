@@ -155,7 +155,6 @@ struct NoteView: View {
             case .wax: WaxSeal().frame(width: 76, height: 76).shadow(color: Color(hex: 0x28321e).opacity(0.35), radius: 3, y: 4)
                     .alignmentGuide(.top) { $0[.top] + 40 }
             case .torn: Paperclip().frame(width: 26, height: 87).alignmentGuide(.top) { $0[.top] + 20 }
-                    .frame(maxWidth: .infinity, alignment: .trailing).padding(.trailing, 20)
             }
         }
         .offset(y: fastenerHover ? -3 : 0)
@@ -166,6 +165,10 @@ struct NoteView: View {
         .help("Hide note")
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel("Hide note")
+        // Push the torn paperclip right *after* the tap area is set, so only the clip folds the note,
+        // not a strip across the top of the card where the first tasks are typed.
+        .frame(maxWidth: store.style == .torn ? .infinity : nil, alignment: .trailing)
+        .padding(.trailing, store.style == .torn ? 20 : 0)
     }
 
     private func hide() {
