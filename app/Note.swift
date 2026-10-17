@@ -61,6 +61,7 @@ struct NoteView: View {
     @State private var fastenerHover = false
     @State private var editing = false
     @State private var pickerOpen = false
+    @State private var hoveredRow: UUID? = nil
     @State private var draft = ""
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -242,7 +243,7 @@ struct NoteView: View {
         let text = Binding(get: { store.tasks.first(where: { $0.id == item.id })?.text ?? "" },
                            set: { new in if let i = store.tasks.firstIndex(where: { $0.id == item.id }) { store.tasks[i].text = new } })
         return HStack(alignment: .top, spacing: 12) {
-            Button { if let i = store.tasks.firstIndex(where: { $0.id == item.id }) { store.tasks[i].done.toggle() } } label: {
+            Button { withAnimation(Motion.ui) { store.toggleDone(item.id) } } label: {
                 CheckBox(done: item.done, theme: theme)
             }
             .buttonStyle(PressScale())
@@ -255,8 +256,19 @@ struct NoteView: View {
                      onDeleteWhenEmpty: { remove(item.id) },
                      onFocusChange: { editing = $0 },
                      onFocused: { store.focusTarget = nil })
+            Button { remove(item.id, focusPrevious: false) } label: {
+                Image(systemName: "xmark").font(.system(size: 9, weight: .semibold))
+                    .frame(width: 15, height: 15).contentShape(Rectangle())
+            }
+            .buttonStyle(PressScale())
+            .foregroundStyle(theme.inkColor.opacity(0.45))
+            .padding(.top, theme.font.firstLineXMid - 7.5)
+            .opacity(hoveredRow == item.id ? 1 : 0)       // shows on hover so the page stays clean
+            .help("Delete task")
+            .accessibilityLabel("Delete task")
         }
         .padding(.vertical, 3)
+        .onHover { h in withAnimation(Motion.ui) { hoveredRow = h ? item.id : (hoveredRow == item.id ? nil : hoveredRow) } }
         .contextMenu {
             Button("Copy Task") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(item.text, forType: .string) }
             Button("Copy All Tasks") { store.copyAll() }
@@ -278,7 +290,7 @@ struct NoteView: View {
                      placeholder: store.tasks.isEmpty ? "Click to add tasks" : "Add a task", placeholderFont: theme.italic.withSize(theme.font.pointSize),
                      focusRequested: store.focusTarget == .add,
                      onReturn: commitDraft,
-                     onPasteLines: { lines in commitDraft(); withAnimation(Motion.drawer) { store.insert(lines, at: store.tasks.count) } },
+                     onPasteLines: { lines in commitDraft(); withAnimation(Motion.drawer) { _ = store.insert(lines, at: store.tasks.count) } },
                      onFocusChange: { editing = $0 },
                      onFocused: { store.focusTarget = nil })
         }
@@ -289,7 +301,7 @@ struct NoteView: View {
         let v = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !v.isEmpty else { return }
         draft = ""
-        withAnimation(Motion.ui) { store.insert([v], at: store.tasks.count) }
+        withAnimation(Motion.ui) { _ = store.insert([v], at: store.tasks.count) }
         store.focusTarget = .add
     }
 
@@ -297,8 +309,7 @@ struct NoteView: View {
     private func returnPressed(after id: UUID) {
         guard let i = store.tasks.firstIndex(where: { $0.id == id }) else { return }
         guard store.state == .expanded || i + 1 < 2 else { NSApp.keyWindow?.makeFirstResponder(nil); return }
-        let blank = TodoItem(text: "")
-        withAnimation(Motion.ui) { store.tasks.insert(blank, at: i + 1) }
+        let blank = withAnimation(Motion.ui) { store.insert([""], at: i + 1)[0] }
         store.focusTarget = .task(blank.id)
     }
 
@@ -307,13 +318,13 @@ struct NoteView: View {
         var rest = lines[...]
         if store.tasks[i].text.isEmpty, let first = rest.first { store.tasks[i].text = first; rest = rest.dropFirst() }
         i += 1
-        withAnimation(Motion.drawer) { store.insert(Array(rest), at: i) }
+        withAnimation(Motion.drawer) { _ = store.insert(Array(rest), at: i) }
     }
 
-    private func remove(_ id: UUID) {
+    private func remove(_ id: UUID, focusPrevious: Bool = true) {
         guard let i = store.tasks.firstIndex(where: { $0.id == id }) else { return }
         withAnimation(Motion.ui) { _ = store.tasks.remove(at: i) }
-        if i > 0 { store.focusTarget = .task(store.tasks[i - 1].id) }
+        if focusPrevious, i > 0 { store.focusTarget = .task(store.tasks[i - 1].id) }
     }
 
     // MARK: Controls

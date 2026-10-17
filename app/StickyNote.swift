@@ -54,6 +54,22 @@ final class Store: ObservableObject {
         } else {
             tasks = Store.importFromOldApp(dir)   // read-only: the old app's file is never written
         }
+        // Open tasks first, ticked ones after: older versions left ticked tasks where they were.
+        let sorted = tasks.filter { !$0.done } + tasks.filter(\.done)
+        if sorted != tasks { tasks = sorted; save() }   // observers don't run in init, so save by hand
+    }
+
+    /// Open tasks come first, ticked ones after; this is where the ticked ones start.
+    var firstDoneIndex: Int { tasks.firstIndex(where: \.done) ?? tasks.count }
+
+    /// Ticking a task sinks it to the bottom; unticking brings it back up to the end of the open ones.
+    func toggleDone(_ id: UUID) {
+        var list = tasks
+        guard let i = list.firstIndex(where: { $0.id == id }) else { return }
+        var t = list.remove(at: i)
+        t.done.toggle()
+        list.insert(t, at: t.done ? list.count : (list.firstIndex(where: \.done) ?? list.count))
+        tasks = list
     }
 
     /// The previous StickyNote.app stored `[{id, text, done, ...}]` in todos.json.
@@ -78,9 +94,11 @@ final class Store: ObservableObject {
         }.filter { !$0.isEmpty }
     }
 
-    func insert(_ texts: [String], at index: Int) {
+    @discardableResult
+    func insert(_ texts: [String], at index: Int) -> [TodoItem] {
         let items = texts.map { TodoItem(text: $0) }
-        tasks.insert(contentsOf: items, at: min(index, tasks.count))
+        tasks.insert(contentsOf: items, at: min(index, firstDoneIndex))   // new tasks stay above the ticked ones
+        return items
     }
 
     func copyAll() {
