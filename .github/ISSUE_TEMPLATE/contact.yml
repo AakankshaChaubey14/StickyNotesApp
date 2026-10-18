@@ -1,0 +1,31 @@
+name: 💼 Commercial use or getting in touch
+description: Ask about using Sticky Note Scrapbook for work or business, collaborating, or anything else.
+title: "[Contact] "
+labels: ["contact"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Want to use Sticky Note Scrapbook for work or business, collaborate, or just say hello? Tell us here and we'll reply in this issue.
+        **This issue is public**, so please don't share private details like phone numbers. We can arrange a private way to talk if needed.
+  - type: dropdown
+    id: topic
+    attributes:
+      label: What is it about?
+      options:
+        - Commercial or business use
+        - Collaboration
+        - Press or a feature about the app
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: who
+    attributes:
+      label: Your name or organization
+  - type: textarea
+    id: message
+    attributes:
+      label: Message
+    validations:
+      required: true

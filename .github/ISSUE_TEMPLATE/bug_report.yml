@@ -1,0 +1,57 @@
+name: 🐞 Bug report
+description: Something in Sticky Note Scrapbook isn't working the way it should.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for helping us fix it! This report is public, so please don't include private information.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Tell us what went wrong.
+      placeholder: When I click the first task in the torn paper look, the note folds up.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we make it happen again?
+      placeholder: |
+        1. Switch to the torn paper look
+        2. Click the first task line
+        3. …
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect instead?
+  - type: dropdown
+    id: look
+    attributes:
+      label: Which look were you using?
+      options:
+        - Brass clip
+        - Wax seal
+        - Torn paper
+        - All of them
+        - Not sure
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      description: Apple menu → About This Mac.
+      placeholder: macOS 26.3
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: In Finder, select Sticky Note in Applications and press ⌘I.
+      placeholder: "2.1"
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or anything else
+      description: You can drag images straight into this box.

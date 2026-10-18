@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💡 Share an idea or general feedback
+    url: https://github.com/AakankshaChaubey14/StickyNotesApp/discussions/categories/ideas
+    about: Talk through an idea with us and other users before it becomes a request.
+  - name: 🙏 Ask a question
+    url: https://github.com/AakankshaChaubey14/StickyNotesApp/discussions/categories/q-a
+    about: How do I…? Ask here and we or other users will help.

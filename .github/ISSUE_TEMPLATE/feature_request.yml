@@ -1,0 +1,35 @@
+name: ✨ Feature request
+description: An idea for something new, or a change to how the note works.
+title: "[Idea] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: We'd love to hear it! For a looser chat about an idea first, you can also post in [Discussions → Ideas](https://github.com/AakankshaChaubey14/StickyNotesApp/discussions/categories/ideas).
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      placeholder: A way to give tasks a due date.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would it help you?
+      description: The problem behind the idea helps us find the best way to solve it.
+  - type: textarea
+    id: how
+    attributes:
+      label: How do you picture it working?
+      description: Optional. A sketch or screenshot is welcome.
+  - type: dropdown
+    id: look
+    attributes:
+      label: Is it about a particular look?
+      options:
+        - No, all of them
+        - Brass clip
+        - Wax seal
+        - Torn paper
+        - A new look

@@ -34,4 +34,20 @@ Tasks stay on your Mac in `~/Library/Application Support/StickyNote/scrapbook-to
 | `handoff/` | The project's web page |
 | `.claude/skills/` | The Claude Code install skill |
 
+## Feedback
+
+We'd love to hear how you use it and what you'd change.
+
+- 💡 Ideas, questions or general feedback: [Discussions](../../discussions)
+- 🐞 Something not working? [Report a bug](../../issues/new?template=bug_report.yml)
+- ✨ Want something new? [Request a feature](../../issues/new?template=feature_request.yml)
+- 💼 Business use, collaboration or anything else: [Get in touch](../../issues/new?template=contact.yml)
+
+## Credits
+
+Dreamed up and built by **Aakanksha Chaubey** ([@AakankshaChaubey14](https://github.com/AakankshaChaubey14))  
+Designed and dressed by **Daria Meshcheriakova** ([@dmeshcheriakova136](https://github.com/dmeshcheriakova136))
+
+*Co-developed with care, one sticky note at a time.*
+
 Fonts: Cormorant Garamond, EB Garamond and Courier Prime, all under the SIL Open Font License (`app/Resources/OFL.txt`).

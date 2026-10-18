@@ -2,6 +2,8 @@
 /*
 !/.gitignore
 !/README.md
+!/AUTHORS
+!/.github/
 !/app/
 !/handoff/
 !/.claude/
