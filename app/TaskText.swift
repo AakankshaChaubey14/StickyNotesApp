@@ -6,7 +6,7 @@
 import AppKit
 import SwiftUI
 
-final class TaskTextView: NSTextView {
+final class TaskTextView: FormattingTextView {
     var onReturn: (() -> Void)?
     var onPasteLines: (([String]) -> Void)?
     var onDeleteWhenEmpty: (() -> Void)?
@@ -90,6 +90,7 @@ final class TaskTextView: NSTextView {
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard window?.firstResponder === self else { return super.performKeyEquivalent(with: event) }
+        if formatKey(event) { return true }
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         switch (mods, event.charactersIgnoringModifiers?.lowercased()) {
         case (.command, "c"): copy(nil); return true
@@ -116,15 +117,24 @@ final class TaskTextView: NSTextView {
         let ok = super.becomeFirstResponder(); if ok { onFocusChange?(true) }; return ok
     }
     override func resignFirstResponder() -> Bool {
-        let ok = super.resignFirstResponder(); if ok { onFocusChange?(false); setSelectedRange(NSRange(location: string.count, length: 0)) }; return ok
+        let ok = super.resignFirstResponder()
+        if ok {
+            onFocusChange?(false)
+            resigning = true                     // keep lastSelection for the B / I buttons
+            setSelectedRange(NSRange(location: (string as NSString).length, length: 0))
+            resigning = false
+        }
+        return ok
     }
 }
 
 /// SwiftUI wrapper. Height follows the wrapped text; width comes from the row.
 struct TaskText: NSViewRepresentable {
-    @Binding var text: String
+    @Binding var content: NotepadDoc             // the words and which of them are bold / italic
     var done: Bool
-    var font: NSFont
+    var faces: NoteFaces
+    var controller: FormatController
+    var font: NSFont { faces.regular }
     var ink: NSColor
     var doneInk: NSColor
     var strike: NSColor
@@ -139,7 +149,7 @@ struct TaskText: NSViewRepresentable {
 
     func makeNSView(context: Context) -> TaskTextView {
         let v = TaskTextView(frame: .zero)
-        v.isRichText = false
+        v.isRichText = true                      // for bold / italic; pasting still brings plain text
         v.importsGraphics = false
         v.allowsUndo = true
         v.drawsBackground = false
@@ -153,19 +163,22 @@ struct TaskText: NSViewRepresentable {
         v.isAutomaticDashSubstitutionEnabled = false
         v.isAutomaticTextReplacementEnabled = false
         v.delegate = context.coordinator
-        v.string = text
+        v.faces = faces
+        v.ink = done ? doneInk : ink
+        v.formatController = controller
+        v.load(content)
         v.setStruck(done, animated: false)
         return v
     }
 
     func updateNSView(_ v: TaskTextView, context: Context) {
         context.coordinator.parent = self
-        if v.string != text { v.string = text }
-        if v.font != font { v.font = font }
-        v.textColor = done ? doneInk : ink
+        let inkNow = done ? doneInk : ink
+        if v.faces != faces || v.ink != inkNow { v.faces = faces; v.ink = inkNow; v.restyle() }
+        if v.doc != content { v.load(content) }          // changed from outside, not by typing here
+        v.formatController = controller
         v.insertionPointColor = ink
         v.selectedTextAttributes = [.backgroundColor: ink.withAlphaComponent(0.14)]
-        v.typingAttributes = [.font: font, .foregroundColor: done ? doneInk : ink]
         v.strikeColor = strike
         v.setStruck(done, animated: true)
         v.placeholder = placeholder.map {
@@ -198,9 +211,13 @@ struct TaskText: NSViewRepresentable {
         var parent: TaskText
         init(_ p: TaskText) { parent = p }
         func textDidChange(_ n: Notification) {
-            guard let v = n.object as? NSTextView else { return }
-            parent.text = v.string
+            guard let v = n.object as? TaskTextView else { return }
+            parent.content = v.doc
             v.invalidateIntrinsicContentSize()
+        }
+        func textViewDidChangeSelection(_ n: Notification) {
+            guard let v = n.object as? TaskTextView, v.window?.firstResponder === v else { return }
+            MainActor.assumeIsolated { parent.controller.refresh() }
         }
     }
 }

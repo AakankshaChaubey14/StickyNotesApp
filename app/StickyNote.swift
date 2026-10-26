@@ -16,6 +16,8 @@ struct TodoItem: Codable, Identifiable, Equatable {
     var id = UUID()
     var text: String
     var done = false
+    var runs: [NotepadDoc.Run]? = nil      // bold / italic words; optional so older files (and versions) still read
+    var content: NotepadDoc { NotepadDoc(text: text, runs: runs ?? []) }
 }
 
 @MainActor
@@ -25,6 +27,10 @@ final class Store: ObservableObject {
     @Published var style: NoteStyle = NoteStyle(rawValue: UserDefaults.standard.string(forKey: "style") ?? "") ?? .brass {
         didSet { UserDefaults.standard.set(style.rawValue, forKey: "style") }
     }
+    @Published var tab: NoteTab = NoteTab(rawValue: UserDefaults.standard.string(forKey: "tab") ?? "") ?? .todo {
+        didSet { UserDefaults.standard.set(tab.rawValue, forKey: "tab") }
+    }
+    @Published var notepad = NotepadDoc() { didSet { saveNotepad() } }
     @Published var focusTarget: FocusTarget? = nil
     // The note's visible area in window coordinates, so clicks beside it reach the desktop.
     var tokenRect: CGRect = .zero
@@ -35,6 +41,7 @@ final class Store: ObservableObject {
     @Published var undoable: [TodoItem]? = nil
 
     private let url: URL
+    private var notepadURL: URL { url.deletingLastPathComponent().appendingPathComponent("scrapbook-notepad.json") }
     private var undoTimer: Timer?
 
     init() {
@@ -53,6 +60,9 @@ final class Store: ObservableObject {
             tasks = saved
         } else {
             tasks = Store.importFromOldApp(dir)   // read-only: the old app's file is never written
+        }
+        if let data = try? Data(contentsOf: notepadURL), let saved = try? JSONDecoder().decode(NotepadDoc.self, from: data) {
+            notepad = saved
         }
         // Open tasks first, ticked ones after: older versions left ticked tasks where they were.
         let sorted = tasks.filter { !$0.done } + tasks.filter(\.done)
@@ -81,6 +91,11 @@ final class Store: ObservableObject {
                   .map { TodoItem(text: $0.text, done: $0.done ?? false) }
     }
 
+    private func saveNotepad() {
+        do { try JSONEncoder().encode(notepad).write(to: notepadURL, options: .atomic) }
+        catch { NSLog("Sticky Note: could not save notes to %@: %@", notepadURL.path, error.localizedDescription) }
+    }
+
     private func save() {
         do { try JSONEncoder().encode(tasks).write(to: url, options: .atomic) }
         catch { NSLog("Sticky Note: could not save tasks to %@: %@", url.path, error.localizedDescription) }
@@ -99,6 +114,11 @@ final class Store: ObservableObject {
         let items = texts.map { TodoItem(text: $0) }
         tasks.insert(contentsOf: items, at: min(index, firstDoneIndex))   // new tasks stay above the ticked ones
         return items
+    }
+
+    /// A task with its formatting, kept above the ticked ones like any new task.
+    func insert(_ item: TodoItem, at index: Int) {
+        tasks.insert(item, at: min(index, firstDoneIndex))
     }
 
     func copyAll() {

@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 APP="build/Sticky Note.app"
 rm -rf "$APP"; mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 # Universal binary: runs on Apple Silicon and Intel Macs
-SRC=(StickyNote.swift Note.swift TaskText.swift Decor.swift)
+SRC=(StickyNote.swift Note.swift TaskText.swift Notepad.swift Decor.swift)
 TMP=$(mktemp -d)
 for arch in arm64 x86_64; do swiftc -O -parse-as-library -target $arch-apple-macosx15.0 -o "$TMP/$arch" "${SRC[@]}"; done
 lipo -create "$TMP/arm64" "$TMP/x86_64" -output "$APP/Contents/MacOS/StickyNote"

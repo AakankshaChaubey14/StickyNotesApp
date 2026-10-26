@@ -5,6 +5,7 @@ import SwiftUI
 
 enum NoteState { case hidden, compact, expanded }
 enum FocusTarget: Equatable { case task(UUID), add }
+enum NoteTab: String { case todo, notes }
 
 enum NoteStyle: String, CaseIterable, Identifiable {
     case brass, wax, torn
@@ -62,7 +63,8 @@ struct NoteView: View {
     @State private var editing = false
     @State private var pickerOpen = false
     @State private var hoveredRow: UUID? = nil
-    @State private var draft = ""
+    @StateObject private var formatControl = FormatController()
+    @State private var draft = NotepadDoc()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var theme: Theme { Theme.of(store.style) }
@@ -183,19 +185,92 @@ struct NoteView: View {
 
     private var card: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(shownTasks.enumerated()), id: \.element.id) { i, item in
-                row(item, index: i)
-                    .transition(i < 2 ? .identity : .asymmetric(
-                        insertion: .opacity.combined(with: .offset(y: -6)).animation(Motion.ui.delay(0.06 + Double(i - 2) * 0.04)),
-                        removal: .opacity.animation(.easeOut(duration: 0.12))))
-            }
-            addRow                                   // always the line right after the visible tasks
-            if hiddenCount > 0 { moreButton }
+            // At the top, so it stays put however long the list or the note grows.
+            // The offset centers it on the paper rather than on the (lopsided) text column.
+            tabBar
+                .frame(maxWidth: .infinity)
+                .offset(x: (theme.pad.trailing - theme.pad.leading) / 2)
+                .padding(.bottom, 14)
+            if store.tab == .notes { notepad } else { todoList }
         }
         .padding(theme.pad)
         .frame(width: theme.width, alignment: .leading)
         .background(paper.gesture(WindowDragGesture()))
         .overlay { decorations }
+    }
+
+    @ViewBuilder private var todoList: some View {
+        ForEach(Array(shownTasks.enumerated()), id: \.element.id) { i, item in
+            row(item, index: i)
+                .transition(i < 2 ? .identity : .asymmetric(
+                    insertion: .opacity.combined(with: .offset(y: -6)).animation(Motion.ui.delay(0.06 + Double(i - 2) * 0.04)),
+                    removal: .opacity.animation(.easeOut(duration: 0.12))))
+        }
+        addRow                                   // always the line right after the visible tasks
+        if hiddenCount > 0 { moreButton }
+    }
+
+    private var notepad: some View {
+        NotepadText(doc: $store.notepad, faces: NoteFaces.of(store.style, size: (theme.font.pointSize * 0.9).rounded()),
+                    ink: theme.ink, placeholderInk: theme.done, controller: formatControl,
+                    onFocusChange: { editing = $0 })
+            .padding(.vertical, 3)
+    }
+
+    // MARK: Tab bar: to-do or notes, plus bold / italic while writing notes
+
+    private var tabBar: some View {
+        HStack(spacing: 2) {
+            tabButton(.todo, icon: "checklist", title: "To-do")
+            tabButton(.notes, icon: "note.text", title: "Notes")
+            // Formats the notepad, or on the to-do page the task you last clicked into; dimmed until there is one
+            Rectangle().fill(theme.inkColor.opacity(0.15)).frame(width: 1, height: 14).padding(.horizontal, 4)
+            Group {
+                formatButton(Text("B").bold(), on: formatControl.bold, help: "Bold (⌘B)") { formatControl.toggle(.noteBold) }
+                formatButton(Text("I").italic(), on: formatControl.italic, help: "Italic (⌘I)") { formatControl.toggle(.noteItalic) }
+            }
+            .opacity(formatControl.hasTarget ? 1 : 0.35)
+            .allowsHitTesting(formatControl.hasTarget)
+        }
+        .padding(3)
+        .background(Capsule().fill(Ink.paper).shadow(color: Color(hex: 0x46340f).opacity(0.2), radius: 4, y: 2))
+        .overlay(Capsule().strokeBorder(theme.inkColor.opacity(0.12), lineWidth: 1))
+    }
+
+    private func tabButton(_ tab: NoteTab, icon: String, title: String) -> some View {
+        let selected = store.tab == tab
+        return Button {
+            guard !selected else { return }
+            NSApp.keyWindow?.makeFirstResponder(nil)
+            withAnimation(Motion.ui) { store.tab = tab }
+            DispatchQueue.main.async { formatControl.refresh() }
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 10, weight: .semibold))
+                Text(title)
+            }
+            .font(.system(size: 11, weight: .medium))
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(Capsule().fill(theme.inkColor.opacity(selected ? 0.12 : 0)))
+            .foregroundStyle(theme.inkColor.opacity(selected ? 1 : 0.55))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(PressScale())
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func formatButton(_ label: Text, on: Bool, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            label.font(.system(size: 12, design: .serif))
+                .frame(width: 24, height: 22)
+                .background(Capsule().fill(theme.inkColor.opacity(on ? 0.12 : 0)))
+                .foregroundStyle(theme.inkColor.opacity(on ? 1 : 0.6))
+                .contentShape(Capsule())
+        }
+        .buttonStyle(PressScale())
+        .help(help)
+        .accessibilityLabel(help)
     }
 
     @ViewBuilder private var paper: some View {
@@ -240,8 +315,12 @@ struct NoteView: View {
     // MARK: Rows
 
     private func row(_ item: TodoItem, index: Int) -> some View {
-        let text = Binding(get: { store.tasks.first(where: { $0.id == item.id })?.text ?? "" },
-                           set: { new in if let i = store.tasks.firstIndex(where: { $0.id == item.id }) { store.tasks[i].text = new } })
+        let content = Binding(get: { store.tasks.first(where: { $0.id == item.id })?.content ?? NotepadDoc() },
+                              set: { new in
+                                  guard let i = store.tasks.firstIndex(where: { $0.id == item.id }) else { return }
+                                  store.tasks[i].text = new.text
+                                  store.tasks[i].runs = new.runs.isEmpty ? nil : new.runs
+                              })
         return HStack(alignment: .top, spacing: 12) {
             Button { withAnimation(Motion.ui) { store.toggleDone(item.id) } } label: {
                 CheckBox(done: item.done, theme: theme)
@@ -249,7 +328,8 @@ struct NoteView: View {
             .buttonStyle(PressScale())
             .padding(.top, theme.font.firstLineXMid - 7.5)
             .accessibilityLabel(item.done ? "Mark as not done" : "Mark as done")
-            TaskText(text: text, done: item.done, font: theme.font, ink: theme.ink, doneInk: theme.done, strike: theme.strike,
+            TaskText(content: content, done: item.done, faces: taskFaces, controller: formatControl,
+                     ink: theme.ink, doneInk: theme.done, strike: theme.strike,
                      focusRequested: store.focusTarget == .task(item.id),
                      onReturn: { returnPressed(after: item.id) },
                      onPasteLines: { lines in pasted(lines, into: item.id) },
@@ -286,7 +366,8 @@ struct NoteView: View {
             }
             .frame(width: 15, height: 15)
             .padding(.top, theme.font.firstLineXMid - 7.5)
-            TaskText(text: $draft, done: false, font: theme.font, ink: theme.ink, doneInk: theme.done, strike: theme.strike,
+            TaskText(content: $draft, done: false, faces: taskFaces, controller: formatControl,
+                     ink: theme.ink, doneInk: theme.done, strike: theme.strike,
                      placeholder: store.tasks.isEmpty ? "Click to add tasks" : "Add a task", placeholderFont: theme.italic.withSize(theme.font.pointSize),
                      focusRequested: store.focusTarget == .add,
                      onReturn: commitDraft,
@@ -298,12 +379,14 @@ struct NoteView: View {
     }
 
     private func commitDraft() {
-        let v = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !v.isEmpty else { return }
-        draft = ""
-        withAnimation(Motion.ui) { _ = store.insert([v], at: store.tasks.count) }
+        let d = draft.trimmed()
+        guard !d.text.isEmpty else { return }
+        draft = NotepadDoc()
+        withAnimation(Motion.ui) { store.insert(TodoItem(text: d.text, runs: d.runs.isEmpty ? nil : d.runs), at: store.tasks.count) }
         store.focusTarget = .add
     }
+
+    private var taskFaces: NoteFaces { NoteFaces.of(store.style, size: theme.font.pointSize) }
 
     /// Return starts a blank task right after this one, if that spot is on screen.
     private func returnPressed(after id: UUID) {
@@ -347,8 +430,8 @@ struct NoteView: View {
             Image(systemName: "arrow.counterclockwise").font(.system(size: 11, weight: .medium))
         }
         .padding(.top, theme.overhang + 12).padding(.trailing, store.style == .torn ? 58 : 12)
-        .opacity(controlsVisible ? 1 : 0)
-        .disabled(store.tasks.isEmpty)
+        .opacity(controlsVisible && store.tab == .todo ? 1 : 0)
+        .disabled(store.tasks.isEmpty || store.tab == .notes)   // Start fresh clears tasks, so not from the notes page
         .accessibilityLabel("Start a fresh page")
     }
 
