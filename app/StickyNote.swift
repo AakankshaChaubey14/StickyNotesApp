@@ -30,7 +30,9 @@ final class Store: ObservableObject {
     @Published var tab: NoteTab = NoteTab(rawValue: UserDefaults.standard.string(forKey: "tab") ?? "") ?? .todo {
         didSet { UserDefaults.standard.set(tab.rawValue, forKey: "tab") }
     }
-    @Published var notepad = NotepadDoc() { didSet { saveNotepad() } }
+    @Published var notepad = NotepadDoc() {
+        didSet { if undoableNotes != nil && !notepad.text.isEmpty { undoableNotes = nil }; saveNotepad() }   // typing again keeps the clear
+    }
     @Published var focusTarget: FocusTarget? = nil
     // The note's visible area in window coordinates, so clicks beside it reach the desktop.
     var tokenRect: CGRect = .zero
@@ -39,6 +41,10 @@ final class Store: ObservableObject {
     var hitRect: CGRect { state == .hidden ? tokenRect.insetBy(dx: -6, dy: -6) : sheetRect.insetBy(dx: -30, dy: -44) }
     @Published var page = UUID()            // changes on restart so the old sheet can animate away
     @Published var undoable: [TodoItem]? = nil
+    @Published var undoableNotes: NotepadDoc? = nil
+
+    /// Nothing saved yet, by this app or the old StickyNote: a brand-new user, who gets the intro.
+    private(set) var isFirstRun = false
 
     private let url: URL
     private var notepadURL: URL { url.deletingLastPathComponent().appendingPathComponent("scrapbook-notepad.json") }
@@ -56,6 +62,8 @@ final class Store: ObservableObject {
         } else {
             url = dir.appendingPathComponent("scrapbook-todos.json")
         }
+        let fm = FileManager.default
+        isFirstRun = ![url, notepadURL, dir.appendingPathComponent("todos.json")].contains { fm.fileExists(atPath: $0.path) }
         if let data = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode([TodoItem].self, from: data) {
             tasks = saved
         } else {
@@ -67,6 +75,7 @@ final class Store: ObservableObject {
         // Open tasks first, ticked ones after: older versions left ticked tasks where they were.
         let sorted = tasks.filter { !$0.done } + tasks.filter(\.done)
         if sorted != tasks { tasks = sorted; save() }   // observers don't run in init, so save by hand
+        if isFirstRun { tasks = Intro.tasks; notepad = Intro.note; save(); saveNotepad() }
     }
 
     /// Open tasks come first, ticked ones after; this is where the ticked ones start.
@@ -134,20 +143,74 @@ final class Store: ObservableObject {
 
     func restart() {
         guard !tasks.isEmpty else { return }
+        undoableNotes = nil                      // only the latest clear can be undone
         undoable = tasks
         if state == .expanded { state = .compact }
         page = UUID()
         tasks = []
+        startUndoTimer()
+    }
+
+    /// Clears the notes page, with the same 5-second Undo as Start fresh.
+    func clearNotes() {
+        guard !notepad.text.isEmpty else { return }
+        undoable = nil
+        undoableNotes = notepad
+        page = UUID()                            // the old page tears away, as with tasks
+        notepad = NotepadDoc()
+        startUndoTimer()
+    }
+
+    private func startUndoTimer() {
         undoTimer?.invalidate()
         undoTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
-            Task { @MainActor in withAnimation(.easeOut(duration: 0.18)) { self?.undoable = nil } }
+            Task { @MainActor in withAnimation(.easeOut(duration: 0.18)) { self?.undoable = nil; self?.undoableNotes = nil } }
         }
     }
 
     func undo() {
+        if let saved = undoableNotes { undoableNotes = nil; notepad = saved; return }
         guard let saved = undoable else { return }
         undoable = nil
         tasks = saved
+    }
+}
+
+// MARK: - First run
+
+/// What a brand-new user finds: tasks that teach by doing, and a welcome page in Notes.
+/// It's ordinary content, so it can be ticked, deleted or cleared like anything else.
+enum Intro {
+    enum Style { case bold, italic }
+
+    static let tasks: [TodoItem] = [
+        doc("Tick this box to finish a task"),
+        doc("Hover a task and click × to delete it"),
+        doc("Select a word and press ", ("B", Style.bold), " or ", ("I", Style.italic)),
+        doc("Click the clip at the top to fold me away"),
+        doc("☰ changes the look: try all three"),
+        doc("↺ clears the page when you're done"),
+    ].map { TodoItem(text: $0.text, runs: $0.runs.isEmpty ? nil : $0.runs) }
+
+    static let note = doc(("Welcome to your notes page", Style.bold),
+                          "\nWrite anything here: ideas, lists, a letter to future you.",
+                          "\nSelect words and press ", ("B", Style.bold), " for bold or ", ("I", Style.italic), " for italic (or ⌘B and ⌘I).",
+                          "\nTap ", ("To-do", Style.italic), " at the top to get back to your list.",
+                          "\nEverything stays on your Mac. Delete this whenever you're ready.")
+
+    /// Joins plain strings and (text, style) pairs into text plus bold / italic runs.
+    private static func doc(_ pieces: Any...) -> NotepadDoc {
+        var d = NotepadDoc()
+        for piece in pieces {
+            let styled = piece as? (String, Style)
+            let text = styled?.0 ?? (piece as? String ?? "")
+            let at = (d.text as NSString).length
+            d.text += text
+            if let style = styled?.1 {
+                d.runs.append(.init(location: at, length: (text as NSString).length, bold: style == .bold, italic: style == .italic))
+            }
+        }
+        return d
     }
 }
 
@@ -311,6 +374,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.async { if state == .hidden { self?.returnHome() } else { self?.fitOnScreen() } }
         }
         panel.orderFrontRegardless()
+        if store.isFirstRun {                     // a brand-new user: show the intro rather than a lone clip in the corner
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
+                MainActor.assumeIsolated { withAnimation(Motion.drawer) { self?.store.state = .compact } }
+            }
+        }
         // Transparent space around the note shouldn't swallow clicks meant for the desktop.
         let track: (NSEvent?) -> Void = { [weak self] _ in
             MainActor.assumeIsolated {

@@ -423,16 +423,19 @@ struct NoteView: View {
         .accessibilityLabel(pickerOpen ? "Close style menu" : "Change style")
     }
 
+    /// Start fresh: clears whichever page is showing, the tasks or the notes, with a 5-second Undo.
     private var restartButton: some View {
-        OutlineButton(theme: theme, tip: "Start fresh", tipEdge: .trailing) {
-            withAnimation(Motion.ui) { store.restart() }
+        let notes = store.tab == .notes
+        return OutlineButton(theme: theme, tip: notes ? "Clear notes" : "Start fresh", tipEdge: .trailing) {
+            if notes { NSApp.keyWindow?.makeFirstResponder(nil) }
+            withAnimation(Motion.ui) { if notes { store.clearNotes() } else { store.restart() } }
         } label: {
             Image(systemName: "arrow.counterclockwise").font(.system(size: 11, weight: .medium))
         }
         .padding(.top, theme.overhang + 12).padding(.trailing, store.style == .torn ? 58 : 12)
-        .opacity(controlsVisible && store.tab == .todo ? 1 : 0)
-        .disabled(store.tasks.isEmpty || store.tab == .notes)   // Start fresh clears tasks, so not from the notes page
-        .accessibilityLabel("Start a fresh page")
+        .opacity(controlsVisible ? 1 : 0)
+        .disabled(notes ? store.notepad.text.isEmpty : store.tasks.isEmpty)
+        .accessibilityLabel(notes ? "Clear the notes page" : "Start a fresh page")
     }
 
     private var picker: some View {
@@ -471,9 +474,11 @@ struct NoteView: View {
         .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .topLeading)))
     }
 
+    private var canUndo: Bool { store.undoable != nil || store.undoableNotes != nil }
+
     private var undoBar: some View {
         HStack(spacing: 12) {
-            Text("Page cleared").foregroundStyle(Color(hex: 0xf6f1e6))
+            Text(store.undoableNotes != nil ? "Notes cleared" : "Page cleared").foregroundStyle(Color(hex: 0xf6f1e6))
             Button("Undo") { withAnimation(Motion.ui) { store.undo() } }
                 .buttonStyle(PressScale())
                 .padding(.horizontal, 10).padding(.vertical, 4)
@@ -484,9 +489,9 @@ struct NoteView: View {
         .padding(.leading, 14).padding(.trailing, 8).padding(.vertical, 7)
         .background(Capsule().fill(Color(hex: 0x2c2822)))
         .padding(.top, 18)
-        .opacity(store.undoable == nil ? 0 : 1)
-        .offset(y: store.undoable == nil ? 6 : 0)
-        .allowsHitTesting(store.undoable != nil)
+        .opacity(canUndo ? 1 : 0)
+        .offset(y: canUndo ? 0 : 6)
+        .allowsHitTesting(canUndo)
     }
 }
 
