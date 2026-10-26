@@ -16,14 +16,18 @@ A to-do note that hangs on your Mac desktop like a page from a scrapbook. It fol
 
 ## Using it
 
+The first time you open it, the note shows you around with a few tips you can tick off.
+
 - Click the clip, seal or scrap to open the note; click it again to fold it away. Folding tucks it against the nearest screen edge.
 - Tick a task and it moves below the open ones. Hover a task and click **×** to delete it.
+- **To-do | Notes** at the top switches between your list and a notes page for everything else.
+- Select words and press **B** or *I* (or ⌘B, ⌘I) to make them bold or italic, in notes and tasks alike.
 - **5 more** shows every task; **Show less** goes back to two.
-- ☰ (top left) switches the look. ↺ (top right) starts a fresh page, with a 5-second Undo.
+- ☰ (top left) switches the look. ↺ (top right) clears the page you're on, tasks or notes, with a 5-second Undo.
 - ⌘C ⌘X ⌘V ⌘A ⌘Z work. Pasting a list adds one task per line.
 - Near a screen edge, the note glides itself into view when it opens.
 
-Tasks stay on your Mac in `~/Library/Application Support/StickyNote/scrapbook-todos.json`. No accounts, no network.
+Tasks and notes stay on your Mac in `~/Library/Application Support/StickyNote/` (`scrapbook-todos.json` and `scrapbook-notepad.json`). No accounts, no network.
 
 ## Project
 
