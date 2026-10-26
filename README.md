@@ -1,8 +1,10 @@
 # Sticky Note Scrapbook
 
-A to-do note that hangs on your Mac desktop like a page from a scrapbook. It folds down to a single brass clip, wax seal or torn-paper scrap, shows your next two tasks when opened, and the whole list when you ask for it.
+A to-do note that hangs on your Mac desktop like a page from a scrapbook. It folds down to a single brass clip, wax seal or torn-paper scrap, shows your next two tasks when opened, and the whole list when you ask for it. When a list isn't enough, flip it over to a notes page.
 
-![Sticky Note Scrapbook](handoff/gallery/brass-2-default.jpg)
+<p align="center">
+  <img src=".github/images/sticky-note.webp" alt="Sticky Note Scrapbook in the brass clip look: a torn-edged paper note with To-do and Notes tabs, bold and italic buttons, and two tasks" width="440">
+</p>
 
 **Requires** macOS 15 or later. Universal build (Apple Silicon and Intel).
 
@@ -34,9 +36,11 @@ Tasks and notes stay on your Mac in `~/Library/Application Support/StickyNote/` 
 | Path | What |
 | --- | --- |
 | `app/` | SwiftUI + AppKit source, `build.sh`, bundled fonts and icon |
+| `app/Notepad.swift` | The Notes page and the bold / italic formatting shared with tasks |
 | `app/Snapshot.swift` | Debug-only build (`-D SNAPSHOT`): renders every state to PNG and runs the paste and fit-on-screen checks |
 | `handoff/` | The project's web page |
 | `.claude/skills/` | The Claude Code install skill |
+| `.github/` | Feedback forms and the README picture |
 
 ## Feedback
 
