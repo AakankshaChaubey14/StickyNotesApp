@@ -118,6 +118,11 @@ struct NoteView: View {
         .onTapGesture { withAnimation(reduceMotion ? .easeOut(duration: 0.15) : Motion.drawer) { store.state = .compact } }
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { store.tokenRect = $0 }
         .help("Show note")
+        .contextMenu {
+            Button("Show Note") { withAnimation(reduceMotion ? .easeOut(duration: 0.15) : Motion.drawer) { store.state = .compact } }
+            Divider()
+            Button("Quit Sticky Note") { NSApp.terminate(nil) }
+        }
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel("Show note")
     }
@@ -147,6 +152,8 @@ struct NoteView: View {
             Divider()
             Button("Start Fresh") { withAnimation(Motion.ui) { store.restart() } }.disabled(store.tasks.isEmpty)
             Button("Hide Note") { hide() }
+            Divider()
+            Button("Quit Sticky Note") { NSApp.terminate(nil) }
         }
     }
 
@@ -355,6 +362,9 @@ struct NoteView: View {
             Button("Paste as Tasks") { withAnimation(Motion.drawer) { store.pasteAsTasks() } }
             Divider()
             Button("Delete Task") { remove(item.id) }
+            Button("Hide Note") { hide() }
+            Divider()
+            Button("Quit Sticky Note") { NSApp.terminate(nil) }
         }
     }
 

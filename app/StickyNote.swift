@@ -515,6 +515,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Copy All Tasks", action: #selector(copyAll), keyEquivalent: "").target = self
         loginItem = menu.addItem(withTitle: "Open at Login", action: #selector(toggleLogin), keyEquivalent: "")
         loginItem.target = self
+        dockItem = menu.addItem(withTitle: "Show in Dock", action: #selector(toggleDock), keyEquivalent: "")
+        dockItem.target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Sticky Note", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         status.menu = menu
@@ -528,6 +530,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
         refreshLoginItem()
+        applyDockSetting()
     }
 
     @objc func showNote() { panel.orderFrontRegardless(); withAnimation(Motion.drawer) { store.state = .compact } }
@@ -541,6 +544,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refreshLoginItem()
     }
     private func refreshLoginItem() { loginItem.state = SMAppService.mainApp.status == .enabled ? .on : .off }
+
+    // MARK: Dock: on by default, since a crowded menu bar can hide the paperclip; it gives a Dock icon with Quit in its menu
+
+    private var dockItem: NSMenuItem!
+
+    @objc func toggleDock() {
+        UserDefaults.standard.set(!UserDefaults.standard.bool(forKey: "showInDock"), forKey: "showInDock")
+        applyDockSetting()
+    }
+
+    private func applyDockSetting() {
+        let on = UserDefaults.standard.bool(forKey: "showInDock")
+        NSApp.setActivationPolicy(on ? .regular : .accessory)
+        dockItem.state = on ? .on : .off
+        panel?.orderFrontRegardless()            // switching Dock modes can hide the app's windows; keep the note up
+    }
+
+    /// Clicking the Dock icon (or a Dock shortcut to the app) opens the note.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showNote()
+        return false
+    }
 }
 
 @main
@@ -549,7 +574,9 @@ struct Main {
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
-        app.setActivationPolicy(.accessory)
+        UserDefaults.standard.register(defaults: ["showInDock": true])
+        // Decide before launch, so turning the Dock off doesn't flash an icon at startup
+        app.setActivationPolicy(UserDefaults.standard.bool(forKey: "showInDock") ? .regular : .accessory)
         app.run()
     }
 }

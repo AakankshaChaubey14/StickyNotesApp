@@ -78,6 +78,16 @@ class FormattingTextView: NSTextView {
         return ok
     }
 
+    /// The text's own right-click menu (Cut, Copy, Paste…), plus a way to quit.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let menu = super.menu(for: event) ?? NSMenu()
+        if !menu.items.contains(where: { $0.action == #selector(NSApplication.terminate(_:)) }) {
+            menu.addItem(.separator())
+            menu.addItem(withTitle: "Quit Sticky Note", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "")
+        }
+        return menu
+    }
+
     func flags(_ a: [NSAttributedString.Key: Any]) -> (Bool, Bool) { (a[.noteBold] as? Bool ?? false, a[.noteItalic] as? Bool ?? false) }
 
     /// Dresses every run in the current look's fonts, keeping its bold / italic flags.

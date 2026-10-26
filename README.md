@@ -28,6 +28,7 @@ The first time you open it, the note shows you around with a few tips you can ti
 - ☰ (top left) switches the look. ↺ (top right) clears the page you're on, tasks or notes, with a 5-second Undo.
 - ⌘C ⌘X ⌘V ⌘A ⌘Z work. Pasting a list adds one task per line.
 - Near a screen edge, the note glides itself into view when it opens.
+- It sits in the Dock: click the icon to open the note, right-click it to quit. Right-clicking the note or the folded clip has Quit too. Prefer it off the Dock? Untick **Show in Dock** in the 📎 menu-bar menu.
 
 Tasks and notes stay on your Mac in `~/Library/Application Support/StickyNote/` (`scrapbook-todos.json` and `scrapbook-notepad.json`). No accounts, no network.
 
