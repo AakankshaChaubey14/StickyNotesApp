@@ -50,7 +50,7 @@ We'd love to hear how you use it and what you'd change.
 - 💡 Ideas, questions or general feedback: [Discussions](../../discussions)
 - 🐞 Something not working? [Report a bug](../../issues/new?template=bug_report.yml)
 - ✨ Want something new? [Request a feature](../../issues/new?template=feature_request.yml)
-- 💼 Business use, collaboration or anything else: [Get in touch](../../issues/new?template=contact.yml)
+- 💼 Collaboration, press or anything else: [Get in touch](../../issues/new?template=contact.yml)
 
 ## Credits
 
@@ -60,3 +60,7 @@ Designed and dressed by **Daria Meshcheriakova** ([@dmeshcheriakova136](https://
 *Co-developed with care, one sticky note at a time.*
 
 Fonts: Cormorant Garamond, EB Garamond and Courier Prime, all under the SIL Open Font License (`app/Resources/OFL.txt`).
+
+## License
+
+Sticky Note Scrapbook is open source under the [MIT License](LICENSE). You're free to use, change and share it; just keep the copyright notice. The fonts keep their own SIL Open Font License.
