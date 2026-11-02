@@ -1,47 +1,100 @@
-# Sticky Note Scrapbook
-
-A to-do note that hangs on your Mac desktop like a page from a scrapbook. It folds down to a single brass clip, wax seal or torn-paper scrap, shows your next two tasks when opened, and the whole list when you ask for it. When a list isn't enough, flip it over to a notes page.
-
 <p align="center">
-  <img src=".github/images/sticky-note.webp" alt="Sticky Note Scrapbook in the brass clip look: a torn-edged paper note with To-do and Notes tabs, bold and italic buttons, and two tasks" width="440">
+  <img src=".github/images/icon.png" width="96" height="96" alt="Sticky Note Scrapbook icon">
 </p>
 
-**Requires** macOS 15 or later. Universal build (Apple Silicon and Intel).
+<h1 align="center">Sticky Note Scrapbook</h1>
 
-## Get it
+<p align="center">
+  <strong>A to-do list and notepad that hangs on your Mac desktop like a page from a scrapbook.</strong><br>
+  Free, private, and simple. No account needed.
+</p>
 
-**Download:** grab `Sticky.Note.zip` from [Releases](../../releases/latest), unzip it, drag **Sticky Note** into Applications and open it. If macOS says it can't check the app: System Settings → Privacy & Security → Open Anyway.
+<p align="center">
+  <a href="https://github.com/AakankshaChaubey14/StickyNotesApp/releases/latest/download/Sticky.Note.dmg">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/badge/Download_for_Mac-f0eadd?style=for-the-badge&logo=apple&logoColor=2c2822">
+      <img src="https://img.shields.io/badge/Download_for_Mac-2c2822?style=for-the-badge&logo=apple&logoColor=white" height="44" alt="Download for Mac">
+    </picture>
+  </a><br>
+  <sub>Free · macOS 15 or later · Apple Silicon and Intel</sub>
+</p>
 
-**With Claude Code:** clone this repo, run `claude` inside it, and say *Install Sticky Note Scrapbook*. Claude builds it on your Mac with the skill in `.claude/skills/`, so there's no security prompt.
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/images/hero-dark.jpg">
+    <img src=".github/images/hero-light.jpg" width="420" alt="Sticky Note Scrapbook in the brass clip look: a torn-edged paper note with To-do and Notes tabs and two starter tips">
+  </picture>
+</p>
 
-**Build it yourself:** with Xcode 16 or later, or recent Command Line Tools (macOS 15 SDK or newer), run `./app/build.sh`, then copy `app/build/Sticky Note.app` to Applications.
+## Install in 3 steps
 
-## Using it
+1. **Download:** click **Download for Mac** above.
+2. **Install:** open the downloaded `Sticky.Note.dmg` and drag **Sticky Note** onto the **Applications** folder.
+3. **Open:** double-click **Sticky Note** in your Applications folder. The note opens with a few tips to get you started.
 
-The first time you open it, the note shows you around with a few tips you can tick off.
+> **Does your Mac say it "can't check" the app?**
+> That's normal for small free apps that haven't paid Apple for verification yet. To open it, go to **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**. You only need to do this once.
 
-- Click the clip, seal or scrap to open the note; click it again to fold it away. Folding tucks it against the nearest screen edge.
-- Tick a task and it moves below the open ones. Hover a task and click **×** to delete it.
-- **To-do | Notes** at the top switches between your list and a notes page for everything else.
-- Select words and press **B** or *I* (or ⌘B, ⌘I) to make them bold or italic, in notes and tasks alike.
-- **5 more** shows every task; **Show less** goes back to two.
-- ☰ (top left) switches the look. ↺ (top right) clears the page you're on, tasks or notes, with a 5-second Undo.
-- ⌘C ⌘X ⌘V ⌘A ⌘Z work. Pasting a list adds one task per line.
-- Near a screen edge, the note glides itself into view when it opens.
-- It sits in the Dock: click the icon to open the note, right-click it to quit. Right-clicking the note or the folded clip has Quit too. Prefer it off the Dock? Untick **Show in Dock** in the 📎 menu-bar menu.
+## What it does
 
-Tasks and notes stay on your Mac in `~/Library/Application Support/StickyNote/` (`scrapbook-todos.json` and `scrapbook-notepad.json`). No accounts, no network.
+- 📎 **Open and fold:** click the clip to open your note. Click it again to tuck it away at the edge of your screen.
+- ☑️ **Tick off tasks:** finished tasks move to the bottom. Hover over a task and click **×** to delete it.
+- 📝 **Write notes:** switch to **Notes** at the top of the note for anything that isn't a to-do.
+- ✍️ **Bold and italic:** select some words and press **B** or ***I***.
+- 🎨 **Three looks:** brass clip, wax seal or torn paper. Switch with the **☰** button.
+- ↺ **Start fresh:** clear the page in one click, with 5 seconds to undo.
+- 🔒 **Private:** your tasks and notes stay on your Mac. No account, no internet, no tracking.
 
-## Project
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/images/demo-dark.gif">
+    <img src=".github/images/demo.gif" width="320" alt="Sticky Note Scrapbook unfolding from its brass clip to show tips, its notes page, and the wax seal and torn paper looks">
+  </picture>
+</p>
 
-| Path | What |
-| --- | --- |
-| `app/` | SwiftUI + AppKit source, `build.sh`, bundled fonts and icon |
-| `app/Notepad.swift` | The Notes page and the bold / italic formatting shared with tasks |
-| `app/Snapshot.swift` | Debug-only build (`-D SNAPSHOT`): renders every state to PNG and runs the paste and fit-on-screen checks |
-| `handoff/` | The project's web page |
-| `.claude/skills/` | The Claude Code install skill |
-| `.github/` | Feedback forms and the README picture |
+## Questions
+
+<details>
+<summary><strong>Is it really free?</strong></summary>
+
+Yes, completely. It's open source under the MIT License.
+</details>
+
+<details>
+<summary><strong>How do I close it?</strong></summary>
+
+Right-click the Sticky Note icon in your Dock (or the note itself, or the folded clip) and choose **Quit Sticky Note**.
+</details>
+
+<details>
+<summary><strong>Can I hide the Dock icon?</strong></summary>
+
+Yes. Click the 📎 paperclip in the menu bar at the top of your screen and untick **Show in Dock**.
+</details>
+
+<details>
+<summary><strong>Will it open when I start my Mac?</strong></summary>
+
+Yes, it starts automatically. To stop that, click the 📎 paperclip in the menu bar and untick **Open at Login**.
+</details>
+
+<details>
+<summary><strong>How do I update to a new version?</strong></summary>
+
+Download the latest version with the button above and install it the same way. It replaces the old one, and your tasks and notes stay just as they were.
+</details>
+
+<details>
+<summary><strong>How do I uninstall it?</strong></summary>
+
+Quit the app, then drag **Sticky Note** from Applications to the Trash. To also delete your tasks and notes, delete the folder `~/Library/Application Support/StickyNote`.
+</details>
+
+<details>
+<summary><strong>Which Macs does it work on?</strong></summary>
+
+Any Mac with macOS 15 (Sequoia) or later, Apple Silicon or Intel.
+</details>
 
 ## Feedback
 
@@ -52,15 +105,34 @@ We'd love to hear how you use it and what you'd change.
 - ✨ Want something new? [Request a feature](../../issues/new?template=feature_request.yml)
 - 💼 Collaboration, press or anything else: [Get in touch](../../issues/new?template=contact.yml)
 
-## Credits
+## Made by
 
 Dreamed up and built by **Aakanksha Chaubey** ([@AakankshaChaubey14](https://github.com/AakankshaChaubey14))  
 Designed and dressed by **Daria Meshcheriakova** ([@dmeshcheriakova136](https://github.com/dmeshcheriakova136))
 
 *Co-developed with care, one sticky note at a time.*
 
+<details>
+<summary><strong>For developers</strong></summary>
+
+**With Claude Code:** clone this repo, run `claude` inside it, and say *Install Sticky Note Scrapbook*. Claude builds it on your Mac with the skill in `.claude/skills/`, so there's no security prompt.
+
+**Build it yourself:** with Xcode 16 or later, or recent Command Line Tools (macOS 15 SDK or newer), run `./app/build.sh`, then copy `app/build/Sticky Note.app` to Applications. `./app/make-dmg.sh` packages it as a `.dmg`.
+
+Tasks and notes are saved in `~/Library/Application Support/StickyNote/` (`scrapbook-todos.json` and `scrapbook-notepad.json`).
+
+| Path | What |
+| --- | --- |
+| `app/` | SwiftUI + AppKit source, `build.sh`, `make-dmg.sh`, bundled fonts and icon |
+| `app/Notepad.swift` | The Notes page and the bold / italic formatting shared with tasks |
+| `app/Snapshot.swift` | Debug-only build (`-D SNAPSHOT`): renders every state to PNG and runs the paste and fit-on-screen checks |
+| `handoff/` | The project's web page |
+| `.claude/skills/` | The Claude Code install skill |
+| `.github/` | Feedback forms and the README pictures |
+
 Fonts: Cormorant Garamond, EB Garamond and Courier Prime, all under the SIL Open Font License (`app/Resources/OFL.txt`).
+</details>
 
 ## License
 
-Sticky Note Scrapbook is open source under the [MIT License](LICENSE). You're free to use, change and share it; just keep the copyright notice. The fonts keep their own SIL Open Font License.
+Open source under the [MIT License](LICENSE). You're free to use, change and share it; just keep the copyright notice.
