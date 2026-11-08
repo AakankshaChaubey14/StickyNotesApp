@@ -198,7 +198,7 @@ enum Intro {
     static let tasks: [TodoItem] = [
         doc("Tick this box to finish a task"),
         doc("Hover a task and click × to delete it"),
-        doc("Select a word and press ", ("B", Style.bold), " or ", ("I", Style.italic)),
+        doc("Select a word and press ", ("B", Style.bold), " to make it bold"),
         doc("Click the clip at the top to fold me away"),
         doc("☰ changes the look: try all three"),
         doc("↺ clears the page when you're done"),
@@ -206,8 +206,10 @@ enum Intro {
 
     static let note = doc(("Welcome to your notes page", Style.bold),
                           "\nWrite anything here: ideas, lists, a letter to future you.",
-                          "\nSelect words and press ", ("B", Style.bold), " for bold or ", ("I", Style.italic), " for italic (or ⌘B and ⌘I).",
-                          "\nTap ", ("To-do", Style.italic), " at the top to get back to your list.",
+                          "\nSelect words and press ", ("B", Style.bold), " (or ⌘B) to make them bold.",
+                          "\n• Type - and a space to start a list like this one",
+                          "\n• Press Return for the next point, and Return twice to finish",
+                          "\nTap ", ("To-do", Style.bold), " at the top to get back to your list.",
                           "\nEverything stays on your Mac. Delete this whenever you're ready.")
 
     /// Joins plain strings and (text, style) pairs into text plus bold / italic runs.

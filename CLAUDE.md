@@ -91,6 +91,7 @@ The debug snapshot build can time this with a large task file; aim for roughly 1
 - Ticked tasks sink below open ones, and new tasks go above ticked ones.
 - The tab bar sits at the top of the note and keeps a fixed width, so it never jumps.
 - Long task lists scroll inside the note (`Store.maxSheetHeight` caps it to the window and screen).
+- The floating panel has **B** and a bullet-list button; the italic button was removed on purpose (⌘I still works). Bullets are plain `• ` text at the start of a line, so they need no data change.
 - Bold and italic are stored as flags, not fonts, so they survive switching looks. Torn paper fakes bold with an outline (Courier Prime has no bold). Brass gets a light extra outline, because it already writes in semibold.
 
 ## Writing style

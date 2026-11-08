@@ -147,6 +147,7 @@ class FormattingTextView: NSTextView {
             textStorage?.addAttributes([.noteBold: run.bold, .noteItalic: run.italic], range: range)
         }
         restyle()
+        (self as? NotepadTextView)?.indentBullets()
         if NSMaxRange(keep) <= length { setSelectedRange(keep) }
     }
 
@@ -204,6 +205,87 @@ final class NotepadTextView: FormattingTextView {
         guard let s = NSPasteboard.general.string(forType: .string) else { return }
         insertText(s, replacementRange: selectedRange())
     }
+
+    // MARK: Bullets: plain "• " text at the start of a line. Typing "- " or "* " starts one,
+    // Return carries the list on, Return on an empty bullet ends it, and the • button toggles lines.
+
+    static let bullet = "• "
+
+    /// Wrapped lines of a bullet start under its text, not under the dot.
+    func indentBullets() {
+        guard let faces, let ts = textStorage else { return }
+        let ns = ts.string as NSString
+        let indent = ceil((Self.bullet as NSString).size(withAttributes: [.font: faces.regular]).width)
+        let plain = NSParagraphStyle.default, hanging = NSMutableParagraphStyle()
+        hanging.headIndent = indent
+        ts.beginEditing()
+        ns.enumerateSubstrings(in: NSRange(location: 0, length: ns.length), options: [.byParagraphs, .substringNotRequired]) { _, r, enclosing, _ in
+            ts.addAttribute(.paragraphStyle, value: ns.substring(with: r).hasPrefix(Self.bullet) ? hanging : plain, range: enclosing)
+        }
+        ts.endEditing()
+    }
+
+    override func didChangeText() { super.didChangeText(); indentBullets() }
+
+    private func line(at location: Int) -> NSRange { (string as NSString).lineRange(for: NSRange(location: location, length: 0)) }
+
+    /// An undoable edit; inserted text gets the plain look, whatever is being typed.
+    private func replace(_ range: NSRange, with text: String) {
+        guard let faces, let ts = textStorage, shouldChangeText(in: range, replacementString: text) else { return }
+        ts.replaceCharacters(in: range, with: NSAttributedString(string: text, attributes: faces.attributes(bold: false, italic: false, ink: ink)))
+        didChangeText()
+    }
+
+    override func insertText(_ text: Any, replacementRange: NSRange) {
+        super.insertText(text, replacementRange: replacementRange)
+        guard ((text as? String) ?? (text as? NSAttributedString)?.string) == " " else { return }
+        let caret = selectedRange().location, l = line(at: caret)
+        let typed = (string as NSString).substring(with: NSRange(location: l.location, length: caret - l.location))
+        guard typed == "- " || typed == "* " else { return }
+        replace(NSRange(location: l.location, length: 2), with: Self.bullet)
+        setSelectedRange(NSRange(location: l.location + 2, length: 0))
+    }
+
+    override func insertNewline(_ sender: Any?) {
+        let l = line(at: selectedRange().location)
+        let content = (string as NSString).substring(with: l).trimmingCharacters(in: .newlines)
+        guard content.hasPrefix(Self.bullet) else { super.insertNewline(sender); return }
+        if content == Self.bullet {                       // an empty bullet: end the list
+            replace(NSRange(location: l.location, length: 2), with: "")
+            setSelectedRange(NSRange(location: l.location, length: 0))
+            return
+        }
+        super.insertNewline(sender)
+        let at = selectedRange().location
+        replace(NSRange(location: at, length: 0), with: Self.bullet)
+        setSelectedRange(NSRange(location: at + 2, length: 0))
+    }
+
+    /// Bullets on for the lines in the selection, or off if they all have one already.
+    func toggleBullets() {
+        let ns = string as NSString, sel = selectedRange()
+        var lines: [NSRange] = []
+        ns.enumerateSubstrings(in: ns.lineRange(for: sel), options: [.byLines, .substringNotRequired]) { _, r, _, _ in lines.append(r) }
+        if lines.isEmpty { lines = [NSRange(location: ns.lineRange(for: sel).location, length: 0)] }   // an empty line at the end
+        let allOn = lines.allSatisfy { ns.substring(with: $0).hasPrefix(Self.bullet) }
+        var changed = 0
+        undoManager?.beginUndoGrouping()
+        for r in lines.reversed() {                       // back to front, so the earlier ranges stay valid
+            if allOn { replace(NSRange(location: r.location, length: 2), with: ""); changed += 1 }
+            else if !ns.substring(with: r).hasPrefix(Self.bullet) { replace(NSRange(location: r.location, length: 0), with: Self.bullet); changed += 1 }
+        }
+        undoManager?.endUndoGrouping()
+        let end = NSMaxRange(sel) + (allOn ? -2 : 2) * changed
+        setSelectedRange(NSRange(location: max(0, min(end, (string as NSString).length)), length: 0))
+    }
+
+    /// For the • button: put back the selection the user made, then toggle its lines.
+    func toggleBulletsFromButton() {
+        let sel = lastSelection
+        if let w = window, w.firstResponder !== self { w.makeKey(); w.makeFirstResponder(self) }
+        if NSMaxRange(sel) <= (string as NSString).length { setSelectedRange(sel) }
+        toggleBullets()
+    }
     override func pasteAsPlainText(_ sender: Any?) { paste(sender) }
     override func pasteAsRichText(_ sender: Any?) { paste(sender) }
 
@@ -223,6 +305,7 @@ final class FormatController: ObservableObject {
     @Published var bold = false
     @Published var italic = false
     @Published var hasTarget = false
+    @Published var canBullet = false                  // bullets are for the notes page, not single-line tasks
 
     func attach(_ v: FormattingTextView) {
         if view !== v { view = v }
@@ -235,16 +318,24 @@ final class FormatController: ObservableObject {
         refresh()
     }
 
+    func toggleBullets() {
+        guard let v = view as? NotepadTextView, v.window != nil else { refresh(); return }
+        v.toggleBulletsFromButton()
+        refresh()
+    }
+
     func refresh() {
         let v = view.flatMap { $0.window == nil ? nil : $0 }
         let b = v?.isOn(.noteBold) ?? false, i = v?.isOn(.noteItalic) ?? false, t = v != nil
         if bold != b { bold = b }
         if italic != i { italic = i }
         if hasTarget != t { hasTarget = t }
+        let c = v is NotepadTextView
+        if canBullet != c { canBullet = c }
     }
 }
 
-/// SwiftUI wrapper: grows with the text between `minLines` and `maxLines`, then scrolls.
+/// SwiftUI wrapper: grows with the text from `minLines` up to `maxHeight` (the room left in the note), then scrolls.
 struct NotepadText: NSViewRepresentable {
     @Binding var doc: NotepadDoc
     var faces: NoteFaces
@@ -252,7 +343,7 @@ struct NotepadText: NSViewRepresentable {
     var placeholderInk: NSColor
     var controller: FormatController
     var minLines: CGFloat = 4
-    var maxLines: CGFloat = 12
+    var maxHeight: CGFloat = 400
     var onFocusChange: (Bool) -> Void = { _ in }
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -293,8 +384,9 @@ struct NotepadText: NSViewRepresentable {
         context.coordinator.parent = self
         guard let v = scroll.documentView as? NotepadTextView else { return }
         v.onFocusChange = onFocusChange
-        if v.faces != faces || v.ink != ink { v.faces = faces; v.ink = ink; v.restyle() }
+        if v.faces != faces || v.ink != ink { v.faces = faces; v.ink = ink; v.restyle(); v.indentBullets() }
         if v.doc != doc { v.load(doc) }                      // changed from outside, not by typing here
+        if abs(context.coordinator.lastMaxHeight - maxHeight) > 0.5 { context.coordinator.lastMaxHeight = maxHeight; v.invalidateIntrinsicContentSize() }
         v.insertionPointColor = ink
         v.selectedTextAttributes = [.backgroundColor: ink.withAlphaComponent(0.14)]
         v.placeholder = NSAttributedString(string: "Write anything…", attributes: [.font: faces.italic, .foregroundColor: placeholderInk])
@@ -307,13 +399,14 @@ struct NotepadText: NSViewRepresentable {
         lm.ensureLayout(for: tc)
         let line = lm.defaultLineHeight(for: faces.regular)
         let used = ceil(lm.usedRect(for: tc).height)
-        return CGSize(width: width, height: min(max(used, line * minLines), line * maxLines))
+        return CGSize(width: width, height: min(max(used, line * minLines), max(line * minLines, maxHeight)))
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     final class Coordinator: NSObject, NSTextViewDelegate {
         var parent: NotepadText
+        var lastMaxHeight: CGFloat = 0
         init(_ p: NotepadText) { parent = p }
         func textDidChange(_ n: Notification) {
             guard let v = n.object as? NotepadTextView else { return }

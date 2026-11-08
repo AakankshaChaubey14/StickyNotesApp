@@ -41,7 +41,7 @@
 - ☑️ **Tick off tasks:** finished tasks move to the bottom. Hover over a task and click **×** to delete it.
 - ↕️ **Reorder:** drag the dots to the left of a task to move it up or down. Long lists scroll inside the note.
 - 📝 **Write notes:** switch to **Notes** at the top of the note for anything that isn't a to-do.
-- ✍️ **Bold and italic:** select some words and press **B** or ***I***.
+- ✍️ **Bold and bullets:** select some words and press **B**. In Notes, type **-** and a space (or tap the list button) to start a bulleted list.
 - 🎨 **Three looks:** brass clip, wax seal or torn paper. Switch with the **☰** button.
 - ↺ **Start fresh:** clear the page in one click, with 5 seconds to undo.
 - 🔒 **Private:** your tasks and notes stay on your Mac. No account, no internet, no tracking.

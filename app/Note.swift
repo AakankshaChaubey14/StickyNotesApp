@@ -71,6 +71,7 @@ struct NoteView: View {
     @State private var listViewportHeight: CGFloat = 0
     @State private var sheetHeight: CGFloat = 0
     @State private var scrollTarget: UUID? = nil
+    @State private var notepadHeight: CGFloat = 0
     @State private var moreAbove = false                     // scrolled down: fade the top edge
     @State private var moreBelow = false                     // more tasks below: fade the bottom edge
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -282,9 +283,12 @@ struct NoteView: View {
     }
 
     private var notepad: some View {
+        // Grows into the room left in the note (as the task list does), then scrolls
         NotepadText(doc: $store.notepad, faces: NoteFaces.of(store.style, size: (theme.font.pointSize * 0.9).rounded()),
                     ink: theme.ink, placeholderInk: theme.done, controller: formatControl,
+                    maxHeight: max(120, store.maxSheetHeight - max(0, sheetHeight - notepadHeight)),
                     onFocusChange: { editing = $0 })
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { notepadHeight = $0 }
             .padding(.vertical, 3)
     }
 
@@ -294,14 +298,15 @@ struct NoteView: View {
         HStack(spacing: 2) {
             tabButton(.todo, icon: "checklist", title: "To-do")
             tabButton(.notes, icon: "note.text", title: "Notes")
-            // Formats the notepad, or on the to-do page the task you last clicked into; dimmed until there is one
+            // B formats the notepad, or on the to-do page the task you last clicked into; bullets are for the
+            // notepad only. Each is dimmed until it has something to act on. (Italic is ⌘I only.)
             Rectangle().fill(theme.inkColor.opacity(0.15)).frame(width: 1, height: 14).padding(.horizontal, 4)
-            Group {
-                formatButton(Text("B").bold(), on: formatControl.bold, help: "Bold (⌘B)") { formatControl.toggle(.noteBold) }
-                formatButton(Text("I").italic(), on: formatControl.italic, help: "Italic (⌘I)") { formatControl.toggle(.noteItalic) }
-            }
-            .opacity(formatControl.hasTarget ? 1 : 0.35)
-            .allowsHitTesting(formatControl.hasTarget)
+            formatButton(Text("B").bold(), on: formatControl.bold, help: "Bold (⌘B)") { formatControl.toggle(.noteBold) }
+                .opacity(formatControl.hasTarget ? 1 : 0.35)
+                .allowsHitTesting(formatControl.hasTarget)
+            formatButton(Text(Image(systemName: "list.bullet")), on: false, help: "Bulleted list (or type - and a space)") { formatControl.toggleBullets() }
+                .opacity(formatControl.canBullet ? 1 : 0.35)
+                .allowsHitTesting(formatControl.canBullet)
         }
         .padding(3)
         .background(Capsule().fill(Ink.paper).shadow(color: Color(hex: 0x46340f).opacity(0.2), radius: 4, y: 2))
