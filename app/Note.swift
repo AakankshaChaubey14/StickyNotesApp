@@ -65,8 +65,14 @@ struct NoteView: View {
     @State private var hoveredRow: UUID? = nil
     @StateObject private var formatControl = FormatController()
     @State private var draft = NotepadDoc()
-    @State private var rowFrames: [UUID: CGRect] = [:]      // each row's rect in the card, measured while nothing is dragged
+    @State private var rowFrames: [UUID: CGRect] = [:]      // each row's rect in the list, measured while nothing is dragged
     @State private var drag: (id: UUID, dy: CGFloat)? = nil
+    // Long lists scroll inside the note instead of running off the bottom (see todoList)
+    @State private var listViewportHeight: CGFloat = 0
+    @State private var sheetHeight: CGFloat = 0
+    @State private var scrollTarget: UUID? = nil
+    @State private var moreAbove = false                     // scrolled down: fade the top edge
+    @State private var moreBelow = false                     // more tasks below: fade the bottom edge
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var theme: Theme { Theme.of(store.style) }
@@ -147,7 +153,7 @@ struct NoteView: View {
         }
         .frame(width: theme.width)
         .onHover { h in withAnimation(Motion.ui) { hovering = h } }
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { store.sheetRect = $0 }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { store.sheetRect = $0; sheetHeight = $0.height }
         .contextMenu {
             Button("Copy All Tasks") { store.copyAll() }.disabled(store.tasks.isEmpty)
             Button("Paste as Tasks") { withAnimation(Motion.drawer) { store.pasteAsTasks() } }
@@ -209,12 +215,67 @@ struct NoteView: View {
         .overlay { decorations }
     }
 
+    /// The tasks scroll once they're taller than the room left in the note (the note never grows past
+    /// its window or the screen); the tab bar above and "Add a task" / "Show less" below stay put.
+    private var listRoom: CGFloat {
+        let chrome = max(0, sheetHeight - listViewportHeight)      // everything in the note except the list
+        return max(80, store.maxSheetHeight - chrome)
+    }
+
+    /// The list's full height, added up from its rows. Nil while some row hasn't been laid out,
+    /// which (the list being lazy) means it runs past the room anyway. Measuring the lazy list
+    /// itself would make it lay out every row, which is what made long lists lag.
+    private var listHeight: CGFloat? {
+        var total: CGFloat = 0
+        for t in shownTasks { guard let f = rowFrames[t.id] else { return nil }; total += f.height }
+        return total
+    }
+
+    private var listViewport: CGFloat { listHeight.map { min($0, listRoom) } ?? listRoom }
+
     @ViewBuilder private var todoList: some View {
-        ForEach(Array(shownTasks.enumerated()), id: \.element.id) { i, item in
-            row(item, index: i)
-                .transition(i < 2 ? .identity : .asymmetric(
-                    insertion: .opacity.combined(with: .offset(y: -6)).animation(Motion.ui.delay(0.06 + Double(i - 2) * 0.04)),
-                    removal: .opacity.animation(.easeOut(duration: 0.12))))
+        ScrollViewReader { proxy in
+            ScrollView(.vertical) {
+                LazyVStack(alignment: .leading, spacing: 0) {   // only the rows on screen are built and laid out
+                    ForEach(Array(shownTasks.enumerated()), id: \.element.id) { i, item in
+                        // Rebuilt only when this row's own inputs change, so typing in one task
+                        // doesn't re-measure every other task in a long list
+                        Keyed(key: RowKey(item: item, style: store.style, hovered: hoveredRow == item.id,
+                                          dragOffset: drag?.id == item.id ? drag!.dy : nil,
+                                          focus: store.focusTarget == .task(item.id)),
+                              content: row(item, index: i))
+                            .equatable()
+                            .id(item.id)
+                            .transition(i < 2 ? .identity : .asymmetric(
+                                insertion: .opacity.combined(with: .offset(y: -6)).animation(Motion.ui.delay(0.06 + Double(i - 2) * 0.04)),
+                                removal: .opacity.animation(.easeOut(duration: 0.12))))
+                    }
+                }
+                .padding(.leading, 28)               // room for the drag dots, which sit left of the rows
+                .coordinateSpace(name: "list")       // row frames here don't change as the list scrolls
+            }
+            .scrollIndicators(.automatic)
+            .scrollDisabled(listHeight.map { $0 <= listRoom + 0.5 } ?? false)
+            .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y > 1 } action: { _, v in moreAbove = v }
+            .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.containerSize.height < $0.contentSize.height - 1 } action: { _, v in moreBelow = v }
+            .mask {                                  // soft edges where tasks continue, instead of a hard cut
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom).frame(height: moreAbove ? 18 : 0)
+                    Rectangle()
+                    LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom).frame(height: moreBelow ? 28 : 0)
+                }
+            }
+            .padding(.leading, -28)               // after the fade, so the fade covers the drag dots' strip too
+            .frame(height: shownTasks.isEmpty ? 0 : listViewport)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listViewportHeight = $0 }
+            .onChange(of: store.focusTarget) { _, target in       // keep the task being typed in on screen
+                if case .task(let id) = target { withAnimation(Motion.ui) { proxy.scrollTo(id) } }
+            }
+            .onChange(of: scrollTarget) { _, id in                // and a task just added from "Add a task"
+                guard let id else { return }
+                withAnimation(Motion.ui) { proxy.scrollTo(id) }
+                scrollTarget = nil
+            }
         }
         addRow                                   // always the line right after the visible tasks
         if hiddenCount > 0 { moreButton }
@@ -359,7 +420,7 @@ struct NoteView: View {
         }
         .padding(.vertical, 3)
         .overlay(alignment: .leading) { grip(for: item).offset(x: -24) }
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("card")) } action: { if drag == nil { rowFrames[item.id] = $0 } }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("list")) } action: { if drag == nil { rowFrames[item.id] = $0 } }
         .offset(y: drag?.id == item.id ? drag!.dy : 0)
         .scaleEffect(drag?.id == item.id ? 1.02 : 1)
         .shadow(color: .black.opacity(drag?.id == item.id ? 0.18 : 0), radius: 6, y: 3)
@@ -398,6 +459,11 @@ struct NoteView: View {
     }
 
     // Six dots left of the checkbox. Drag one up or down to reorder; open tasks stay above ticked ones.
+    /// Everything a task row's look depends on; see `Keyed`.
+    private struct RowKey: Equatable {
+        let item: TodoItem, style: NoteStyle, hovered: Bool, dragOffset: CGFloat?, focus: Bool
+    }
+
     private func grip(for item: TodoItem) -> some View {
         VStack(spacing: 2.5) {
             ForEach(0..<3, id: \.self) { _ in
@@ -412,9 +478,14 @@ struct NoteView: View {
         .gesture(DragGesture(minimumDistance: 3, coordinateSpace: .named("card"))
             .onChanged { drag = (item.id, $0.translation.height) }
             .onEnded { v in
-                if let f = rowFrames[item.id] {
+                if let f = rowFrames[item.id], let from = shownTasks.firstIndex(where: { $0.id == item.id }) {
                     let mid = f.midY + v.translation.height
-                    let target = shownTasks.filter { $0.id != item.id && (rowFrames[$0.id]?.midY ?? 0) < mid }.count
+                    // Rows the lazy list never laid out have no frame: they sit where their index says
+                    let target = shownTasks.enumerated().filter { j, t in
+                        guard t.id != item.id else { return false }
+                        if let r = rowFrames[t.id] { return r.midY < mid }
+                        return j < from
+                    }.count
                     withAnimation(Motion.ui) { store.move(item.id, to: target); drag = nil }
                 } else { drag = nil }
             })
@@ -426,8 +497,10 @@ struct NoteView: View {
         let d = draft.trimmed()
         guard !d.text.isEmpty else { return }
         draft = NotepadDoc()
-        withAnimation(Motion.ui) { store.insert(TodoItem(text: d.text, runs: d.runs.isEmpty ? nil : d.runs), at: store.tasks.count) }
+        let item = TodoItem(text: d.text, runs: d.runs.isEmpty ? nil : d.runs)
+        withAnimation(Motion.ui) { store.insert(item, at: store.tasks.count) }
         store.focusTarget = .add
+        if store.state == .expanded { DispatchQueue.main.async { scrollTarget = item.id } }
     }
 
     private var taskFaces: NoteFaces { NoteFaces.of(store.style, size: theme.font.pointSize) }
@@ -696,4 +769,12 @@ struct PickerRowStyle: ButtonStyle {
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
     }
+}
+
+/// Wraps a view so SwiftUI skips updating it (and the text views inside) while `key` is unchanged.
+struct Keyed<Key: Equatable, Content: View>: View, Equatable {
+    let key: Key
+    let content: Content
+    static func == (a: Self, b: Self) -> Bool { a.key == b.key }
+    var body: some View { content }
 }

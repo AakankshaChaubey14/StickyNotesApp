@@ -38,6 +38,8 @@ final class Store: ObservableObject {
     var tokenRect: CGRect = .zero
     var sheetRect: CGRect = .zero { didSet { if sheetRect != oldValue { layoutChanged?() } } }
     var layoutChanged: (() -> Void)?
+    /// The tallest the open note may be: what fits in its window and on its screen. Longer lists scroll.
+    @Published var maxSheetHeight: CGFloat = 808
     var hitRect: CGRect { state == .hidden ? tokenRect.insetBy(dx: -6, dy: -6) : sheetRect.insetBy(dx: -30, dy: -44) }
     @Published var page = UUID()            // changes on restart so the old sheet can animate away
     @Published var undoable: [TodoItem]? = nil
@@ -368,6 +370,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         host.frame = NSRect(origin: .zero, size: size)
         panel.contentView = host
         panel.setFrameOrigin(savedOrigin(size))
+        updateMaxSheetHeight()
+        NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.updateMaxSheetHeight() }
+        }
         NotificationCenter.default.addObserver(forName: NSWindow.didMoveNotification, object: panel, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self, !self.autoMoving else { return }
@@ -417,7 +423,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var stateWatch: AnyCancellable?
 
     /// If the open note would spill past the edge of the screen, glide it just far enough to fit.
+    /// Room for the open note: inside the window (minus NoteView's 52pt top and 40pt bottom padding),
+    /// and on the current screen with a margin and space for the clip that pokes above the paper.
+    private func updateMaxSheetHeight() {
+        let inWindow = panel.frame.height - 52 - 40
+        let onScreen = ((panel.screen ?? NSScreen.main)?.visibleFrame.height ?? inWindow + 74) - 24 - 50
+        let h = max(200, min(inWindow, onScreen))
+        if abs(store.maxSheetHeight - h) > 0.5 { store.maxSheetHeight = h }
+    }
+
     private func fitOnScreen() {
+        updateMaxSheetHeight()                   // the note may have moved to a screen of another size
         guard store.state != .hidden, store.sheetRect != .zero, let screen = panel.screen ?? NSScreen.main else { return }
         // Measure from where an in-flight glide will land, so repeated layout passes don't stack moves
         let base = autoMoving ? (glideTarget ?? panel.frame.origin) : panel.frame.origin
