@@ -39,6 +39,7 @@
 
 - 📎 **Open and fold:** click the clip to open your note. Click it again to tuck it away at the edge of your screen.
 - ☑️ **Tick off tasks:** finished tasks move to the bottom. Hover over a task and click **×** to delete it.
+- ↕️ **Reorder:** drag the dots to the left of a task to move it up or down. Long lists scroll inside the note.
 - 📝 **Write notes:** switch to **Notes** at the top of the note for anything that isn't a to-do.
 - ✍️ **Bold and italic:** select some words and press **B** or ***I***.
 - 🎨 **Three looks:** brass clip, wax seal or torn paper. Switch with the **☰** button.

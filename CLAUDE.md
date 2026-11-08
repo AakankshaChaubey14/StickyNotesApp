@@ -74,6 +74,14 @@ To make a release:
 4. `gh release create vX.Y Sticky.Note.dmg Sticky.Note.zip --target <sha> --latest`, with short user-facing notes.
 5. Download the assets back and confirm they match what you tested. The README's download button points at `releases/latest/download/Sticky.Note.dmg`, so every release needs a dmg named exactly that.
 
+## Keeping long lists fast
+
+The task list is a `LazyVStack` in a `ScrollView`, and each row is wrapped in `Keyed(key: RowKey…).equatable()` so only rows whose own inputs changed update. Two traps, both measured:
+- **Never measure the lazy list's own size** (for example `onGeometryChange` on the `LazyVStack`). That forces every row to lay out and caused multi-second freezes at 300 tasks. The list height is summed from row frames instead (`listHeight`).
+- If a row starts depending on new state, add it to `RowKey`, or that row won't update.
+
+The debug snapshot build can time this with a large task file; aim for roughly 15 ms per keystroke at 300 tasks.
+
 ## Decisions already made (don't redo these)
 
 - MIT license, copyright both co-developers. Calling it "open source" is accurate.
@@ -82,6 +90,7 @@ To make a release:
 - The Dock icon is on by default, because a crowded menu bar hides the 📎 icon. Users can turn it off in the 📎 menu.
 - Ticked tasks sink below open ones, and new tasks go above ticked ones.
 - The tab bar sits at the top of the note and keeps a fixed width, so it never jumps.
+- Long task lists scroll inside the note (`Store.maxSheetHeight` caps it to the window and screen).
 - Bold and italic are stored as flags, not fonts, so they survive switching looks. Torn paper fakes bold with an outline (Courier Prime has no bold). Brass gets a light extra outline, because it already writes in semibold.
 
 ## Writing style
