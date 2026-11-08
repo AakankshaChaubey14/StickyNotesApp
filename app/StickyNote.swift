@@ -130,6 +130,16 @@ final class Store: ObservableObject {
         tasks.insert(item, at: min(index, firstDoneIndex))
     }
 
+    /// Drag-reorder: `index` is the new position among the other tasks. Open tasks stay above ticked ones.
+    func move(_ id: UUID, to index: Int) {
+        var list = tasks
+        guard let i = list.firstIndex(where: { $0.id == id }) else { return }
+        let t = list.remove(at: i)
+        let open = list.filter { !$0.done }.count
+        list.insert(t, at: t.done ? max(index, open) : min(index, open))
+        if list != tasks { tasks = list }
+    }
+
     func copyAll() {
         let text = tasks.map { $0.text }.joined(separator: "\n")
         NSPasteboard.general.clearContents()

@@ -65,6 +65,8 @@ struct NoteView: View {
     @State private var hoveredRow: UUID? = nil
     @StateObject private var formatControl = FormatController()
     @State private var draft = NotepadDoc()
+    @State private var rowFrames: [UUID: CGRect] = [:]      // each row's rect in the card, measured while nothing is dragged
+    @State private var drag: (id: UUID, dy: CGFloat)? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var theme: Theme { Theme.of(store.style) }
@@ -200,6 +202,7 @@ struct NoteView: View {
                 .padding(.bottom, 14)
             if store.tab == .notes { notepad } else { todoList }
         }
+        .coordinateSpace(name: "card")
         .padding(theme.pad)
         .frame(width: theme.width, alignment: .leading)
         .background(paper.gesture(WindowDragGesture()))
@@ -355,6 +358,12 @@ struct NoteView: View {
             .accessibilityLabel("Delete task")
         }
         .padding(.vertical, 3)
+        .overlay(alignment: .leading) { grip(for: item).offset(x: -24) }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("card")) } action: { if drag == nil { rowFrames[item.id] = $0 } }
+        .offset(y: drag?.id == item.id ? drag!.dy : 0)
+        .scaleEffect(drag?.id == item.id ? 1.02 : 1)
+        .shadow(color: .black.opacity(drag?.id == item.id ? 0.18 : 0), radius: 6, y: 3)
+        .zIndex(drag?.id == item.id ? 1 : 0)
         .onHover { h in withAnimation(Motion.ui) { hoveredRow = h ? item.id : (hoveredRow == item.id ? nil : hoveredRow) } }
         .contextMenu {
             Button("Copy Task") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(item.text, forType: .string) }
@@ -386,6 +395,31 @@ struct NoteView: View {
                      onFocused: { store.focusTarget = nil })
         }
         .padding(.vertical, 3)
+    }
+
+    // Six dots left of the checkbox. Drag one up or down to reorder; open tasks stay above ticked ones.
+    private func grip(for item: TodoItem) -> some View {
+        VStack(spacing: 2.5) {
+            ForEach(0..<3, id: \.self) { _ in
+                HStack(spacing: 2.5) { Circle().frame(width: 2.6, height: 2.6); Circle().frame(width: 2.6, height: 2.6) }
+            }
+        }
+        .foregroundStyle(theme.inkColor.opacity(drag?.id == item.id || hoveredRow == item.id ? 0.6 : 0.28))
+        .frame(width: 16, height: 22)
+        .contentShape(Rectangle())
+        .padding(.top, theme.font.firstLineXMid - 11)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .gesture(DragGesture(minimumDistance: 3, coordinateSpace: .named("card"))
+            .onChanged { drag = (item.id, $0.translation.height) }
+            .onEnded { v in
+                if let f = rowFrames[item.id] {
+                    let mid = f.midY + v.translation.height
+                    let target = shownTasks.filter { $0.id != item.id && (rowFrames[$0.id]?.midY ?? 0) < mid }.count
+                    withAnimation(Motion.ui) { store.move(item.id, to: target); drag = nil }
+                } else { drag = nil }
+            })
+        .help("Drag to reorder")
+        .accessibilityLabel("Reorder task")
     }
 
     private func commitDraft() {
