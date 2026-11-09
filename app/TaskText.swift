@@ -120,9 +120,16 @@ final class TaskTextView: FormattingTextView {
         let ok = super.resignFirstResponder()
         if ok {
             onFocusChange?(false)
-            resigning = true                     // keep lastSelection for the B / I buttons
-            setSelectedRange(NSRange(location: (string as NSString).length, length: 0))
-            resigning = false
+            // Drop a highlighted selection, so tasks not being typed in look clean. Only when there
+            // is one: moving a plain caret after losing focus made it show again, which left a
+            // blinking caret behind in every task clicked through.
+            let sel = selectedRange()
+            if sel.length > 0 {
+                resigning = true                 // keep lastSelection for the B button
+                setSelectedRange(NSRange(location: sel.location + sel.length, length: 0))
+                resigning = false
+                for case let c as NSTextInsertionIndicator in subviews { c.displayMode = .hidden }
+            }
         }
         return ok
     }
@@ -190,7 +197,10 @@ struct TaskText: NSViewRepresentable {
         v.onFocusChange = onFocusChange
         if focusRequested {
             DispatchQueue.main.async {
-                if let w = v.window, w.firstResponder !== v { w.makeKey(); w.makeFirstResponder(v) }
+                if let w = v.window, w.firstResponder !== v {
+                    w.makeKey(); w.makeFirstResponder(v)
+                    v.setSelectedRange(NSRange(location: (v.string as NSString).length, length: 0))   // type on from the end
+                }
                 onFocused()
             }
         }

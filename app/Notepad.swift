@@ -189,6 +189,7 @@ final class NotepadTextView: FormattingTextView {
         guard window?.firstResponder === self else { return super.performKeyEquivalent(with: event) }
         if formatKey(event) { return true }
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if mods == [.command, .shift], event.keyCode == 26 { toggleBullets(); return true }   // ⇧⌘7, as in Apple Notes
         switch (mods, event.charactersIgnoringModifiers?.lowercased()) {
         case (.command, "c"): copy(nil); return true
         case (.command, "x"): cut(nil); return true
@@ -207,7 +208,7 @@ final class NotepadTextView: FormattingTextView {
     }
 
     // MARK: Bullets: plain "• " text at the start of a line. Typing "- " or "* " starts one,
-    // Return carries the list on, Return on an empty bullet ends it, and the • button toggles lines.
+    // Return carries the list on, Return on an empty bullet ends it, and ⇧⌘7 toggles lines.
 
     static let bullet = "• "
 
@@ -279,13 +280,6 @@ final class NotepadTextView: FormattingTextView {
         setSelectedRange(NSRange(location: max(0, min(end, (string as NSString).length)), length: 0))
     }
 
-    /// For the • button: put back the selection the user made, then toggle its lines.
-    func toggleBulletsFromButton() {
-        let sel = lastSelection
-        if let w = window, w.firstResponder !== self { w.makeKey(); w.makeFirstResponder(self) }
-        if NSMaxRange(sel) <= (string as NSString).length { setSelectedRange(sel) }
-        toggleBullets()
-    }
     override func pasteAsPlainText(_ sender: Any?) { paste(sender) }
     override func pasteAsRichText(_ sender: Any?) { paste(sender) }
 
@@ -305,7 +299,6 @@ final class FormatController: ObservableObject {
     @Published var bold = false
     @Published var italic = false
     @Published var hasTarget = false
-    @Published var canBullet = false                  // bullets are for the notes page, not single-line tasks
 
     func attach(_ v: FormattingTextView) {
         if view !== v { view = v }
@@ -318,20 +311,12 @@ final class FormatController: ObservableObject {
         refresh()
     }
 
-    func toggleBullets() {
-        guard let v = view as? NotepadTextView, v.window != nil else { refresh(); return }
-        v.toggleBulletsFromButton()
-        refresh()
-    }
-
     func refresh() {
         let v = view.flatMap { $0.window == nil ? nil : $0 }
         let b = v?.isOn(.noteBold) ?? false, i = v?.isOn(.noteItalic) ?? false, t = v != nil
         if bold != b { bold = b }
         if italic != i { italic = i }
         if hasTarget != t { hasTarget = t }
-        let c = v is NotepadTextView
-        if canBullet != c { canBullet = c }
     }
 }
 

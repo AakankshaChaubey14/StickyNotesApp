@@ -91,7 +91,9 @@ The debug snapshot build can time this with a large task file; aim for roughly 1
 - Ticked tasks sink below open ones, and new tasks go above ticked ones.
 - The tab bar sits at the top of the note and keeps a fixed width, so it never jumps.
 - Long task lists scroll inside the note (`Store.maxSheetHeight` caps it to the window and screen).
-- The floating panel has **B** and a bullet-list button; the italic button was removed on purpose (⌘I still works). Bullets are plain `• ` text at the start of a line, so they need no data change.
+- The floating panel has only **B**. Italic (⌘I) and bullets (type `- `, or ⇧⌘7) are keyboard only, on purpose. Bullets are plain `• ` text at the start of a line, so they need no data change.
+- Which task the mouse is over comes from the mouse position (`Store.pointerRow`, set from the app delegate's mouse tracking), not SwiftUI `onHover`. macOS often reported the mouse leaving a task as it reached the ×, so the × hid before it could be clicked.
+- The note only takes clicks on the paper (`Store.hitRect`, with room above for the fastener). A wider margin blocked buttons in apps next to the note.
 - Bold and italic are stored as flags, not fonts, so they survive switching looks. Torn paper fakes bold with an outline (Courier Prime has no bold). Brass gets a light extra outline, because it already writes in semibold.
 
 ## Writing style

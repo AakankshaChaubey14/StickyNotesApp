@@ -62,7 +62,7 @@ struct NoteView: View {
     @State private var fastenerHover = false
     @State private var editing = false
     @State private var pickerOpen = false
-    @State private var hoveredRow: UUID? = nil
+    private var hoveredRow: UUID? { store.pointerRow }   // the task under the mouse; see Store.updatePointerRow
     @StateObject private var formatControl = FormatController()
     @State private var draft = NotepadDoc()
     @State private var rowFrames: [UUID: CGRect] = [:]      // each row's rect in the list, measured while nothing is dragged
@@ -238,14 +238,24 @@ struct NoteView: View {
         ScrollViewReader { proxy in
             ScrollView(.vertical) {
                 LazyVStack(alignment: .leading, spacing: 0) {   // only the rows on screen are built and laid out
+                    let plan = dragPlan
                     ForEach(Array(shownTasks.enumerated()), id: \.element.id) { i, item in
                         // Rebuilt only when this row's own inputs change, so typing in one task
                         // doesn't re-measure every other task in a long list
                         Keyed(key: RowKey(item: item, style: store.style, hovered: hoveredRow == item.id,
-                                          dragOffset: drag?.id == item.id ? drag!.dy : nil,
+                                          dragging: drag?.id == item.id,
                                           focus: store.focusTarget == .task(item.id)),
                               content: row(item, index: i))
                             .equatable()
+                            // While dragging, the others slide aside to show where the task will land
+                            .offset(y: makeRoom(i, plan))
+                            .animation(.easeOut(duration: 0.18), value: makeRoom(i, plan))
+                            // The drag moves the finished row as a picture, outside Keyed, so the row
+                            // itself doesn't redraw on every step of the drag
+                            .offset(y: drag?.id == item.id ? drag!.dy : 0)
+                            .scaleEffect(drag?.id == item.id ? 1.02 : 1)
+                            .shadow(color: .black.opacity(drag?.id == item.id ? 0.18 : 0), radius: 6, y: 3)
+                            .zIndex(drag?.id == item.id ? 1 : 0)
                             .id(item.id)
                             .transition(i < 2 ? .identity : .asymmetric(
                                 insertion: .opacity.combined(with: .offset(y: -6)).animation(Motion.ui.delay(0.06 + Double(i - 2) * 0.04)),
@@ -253,9 +263,10 @@ struct NoteView: View {
                     }
                 }
                 .padding(.leading, 28)               // room for the drag dots, which sit left of the rows
+                .padding(.trailing, 16)              // and for the scroller, so it isn't over the ×
                 .coordinateSpace(name: "list")       // row frames here don't change as the list scrolls
             }
-            .scrollIndicators(.automatic)
+            .scrollIndicators(.never)
             .scrollDisabled(listHeight.map { $0 <= listRoom + 0.5 } ?? false)
             .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y > 1 } action: { _, v in moreAbove = v }
             .onScrollGeometryChange(for: Bool.self) { $0.contentOffset.y + $0.containerSize.height < $0.contentSize.height - 1 } action: { _, v in moreBelow = v }
@@ -267,8 +278,12 @@ struct NoteView: View {
                 }
             }
             .padding(.leading, -28)               // after the fade, so the fade covers the drag dots' strip too
+            // The scroller (even hidden) still takes the mouse along the right edge. Widen the list into
+            // the paper's margin so that edge is past the ×; otherwise the × vanished as you reached it.
+            .padding(.trailing, -16)
             .frame(height: shownTasks.isEmpty ? 0 : listViewport)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listViewportHeight = $0 }
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { store.listRect = $0.insetBy(dx: -14, dy: 0).offsetBy(dx: -14, dy: 0) }
             .onChange(of: store.focusTarget) { _, target in       // keep the task being typed in on screen
                 if case .task(let id) = target { withAnimation(Motion.ui) { proxy.scrollTo(id) } }
             }
@@ -298,15 +313,12 @@ struct NoteView: View {
         HStack(spacing: 2) {
             tabButton(.todo, icon: "checklist", title: "To-do")
             tabButton(.notes, icon: "note.text", title: "Notes")
-            // B formats the notepad, or on the to-do page the task you last clicked into; bullets are for the
-            // notepad only. Each is dimmed until it has something to act on. (Italic is ⌘I only.)
+            // B formats the notepad, or on the to-do page the task you last clicked into. Dimmed until it
+            // has something to act on. Italic (⌘I) and bullets ("- " or ⇧⌘7) are keyboard only.
             Rectangle().fill(theme.inkColor.opacity(0.15)).frame(width: 1, height: 14).padding(.horizontal, 4)
             formatButton(Text("B").bold(), on: formatControl.bold, help: "Bold (⌘B)") { formatControl.toggle(.noteBold) }
                 .opacity(formatControl.hasTarget ? 1 : 0.35)
                 .allowsHitTesting(formatControl.hasTarget)
-            formatButton(Text(Image(systemName: "list.bullet")), on: false, help: "Bulleted list (or type - and a space)") { formatControl.toggleBullets() }
-                .opacity(formatControl.canBullet ? 1 : 0.35)
-                .allowsHitTesting(formatControl.canBullet)
         }
         .padding(3)
         .background(Capsule().fill(Ink.paper).shadow(color: Color(hex: 0x46340f).opacity(0.2), radius: 4, y: 2))
@@ -385,7 +397,8 @@ struct NoteView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(MoreButtonStyle(theme: theme))
-        .padding(.leading, 27).padding(.top, 4)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+        .padding(.top, 4)
     }
 
     // MARK: Rows
@@ -420,17 +433,13 @@ struct NoteView: View {
             .foregroundStyle(theme.inkColor.opacity(0.45))
             .padding(.top, theme.font.firstLineXMid - 7.5)
             .opacity(hoveredRow == item.id ? 1 : 0)       // shows on hover so the page stays clean
-            .help("Delete task")
             .accessibilityLabel("Delete task")
         }
         .padding(.vertical, 3)
         .overlay(alignment: .leading) { grip(for: item).offset(x: -24) }
         .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("list")) } action: { if drag == nil { rowFrames[item.id] = $0 } }
-        .offset(y: drag?.id == item.id ? drag!.dy : 0)
-        .scaleEffect(drag?.id == item.id ? 1.02 : 1)
-        .shadow(color: .black.opacity(drag?.id == item.id ? 0.18 : 0), radius: 6, y: 3)
-        .zIndex(drag?.id == item.id ? 1 : 0)
-        .onHover { h in withAnimation(Motion.ui) { hoveredRow = h ? item.id : (hoveredRow == item.id ? nil : hoveredRow) } }
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { store.rowRects[item.id] = $0.insetBy(dx: -14, dy: 0).offsetBy(dx: -14, dy: 0) }   // plus the drag dots on the left
+        .onDisappear { store.rowRects[item.id] = nil }
         .contextMenu {
             Button("Copy Task") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(item.text, forType: .string) }
             Button("Copy All Tasks") { store.copyAll() }
@@ -466,7 +475,32 @@ struct NoteView: View {
     // Six dots left of the checkbox. Drag one up or down to reorder; open tasks stay above ticked ones.
     /// Everything a task row's look depends on; see `Keyed`.
     private struct RowKey: Equatable {
-        let item: TodoItem, style: NoteStyle, hovered: Bool, dragOffset: CGFloat?, focus: Bool
+        let item: TodoItem, style: NoteStyle, hovered: Bool, dragging: Bool, focus: Bool
+    }
+
+    /// Where the task being dragged would land, and how far the others move to make room.
+    private var dragPlan: (from: Int, to: Int, h: CGFloat)? {
+        guard let d = drag, let f = rowFrames[d.id], let from = shownTasks.firstIndex(where: { $0.id == d.id }) else { return nil }
+        return (from, dropIndex(d.id, from: from, mid: f.midY + d.dy), f.height)
+    }
+
+    /// The index the dragged task's middle has reached. Open tasks stay above ticked ones, as in Store.move.
+    private func dropIndex(_ id: UUID, from: Int, mid: CGFloat) -> Int {
+        var target = 0, open = 0
+        for (j, t) in shownTasks.enumerated() where t.id != id {
+            if !t.done { open += 1 }
+            // A row gives way as soon as the dragged task's middle crosses its near edge, so the gap
+            // stays right under the task. Rows the lazy list never laid out sit where their index says.
+            if rowFrames[t.id].map({ j < from ? $0.maxY < mid : $0.minY < mid }) ?? (j < from) { target += 1 }
+        }
+        return shownTasks[from].done ? max(target, open) : min(target, open)
+    }
+
+    private func makeRoom(_ i: Int, _ plan: (from: Int, to: Int, h: CGFloat)?) -> CGFloat {
+        guard let p = plan, i != p.from else { return 0 }
+        if p.from < p.to, i > p.from, i <= p.to { return -p.h }
+        if p.to < p.from, i >= p.to, i < p.from { return p.h }
+        return 0
     }
 
     private func grip(for item: TodoItem) -> some View {
@@ -484,13 +518,7 @@ struct NoteView: View {
             .onChanged { drag = (item.id, $0.translation.height) }
             .onEnded { v in
                 if let f = rowFrames[item.id], let from = shownTasks.firstIndex(where: { $0.id == item.id }) {
-                    let mid = f.midY + v.translation.height
-                    // Rows the lazy list never laid out have no frame: they sit where their index says
-                    let target = shownTasks.enumerated().filter { j, t in
-                        guard t.id != item.id else { return false }
-                        if let r = rowFrames[t.id] { return r.midY < mid }
-                        return j < from
-                    }.count
+                    let target = dropIndex(item.id, from: from, mid: f.midY + v.translation.height)
                     withAnimation(Motion.ui) { store.move(item.id, to: target); drag = nil }
                 } else { drag = nil }
             })

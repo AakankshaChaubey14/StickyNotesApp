@@ -37,10 +37,28 @@ final class Store: ObservableObject {
     // The note's visible area in window coordinates, so clicks beside it reach the desktop.
     var tokenRect: CGRect = .zero
     var sheetRect: CGRect = .zero { didSet { if sheetRect != oldValue { layoutChanged?() } } }
+    // Which task the mouse is over, worked out from the mouse position (see `track` in the app delegate)
+    // rather than SwiftUI hover, which macOS sometimes doesn't report as the mouse reaches a task's ×.
+    var rowRects: [UUID: CGRect] = [:]      // window coordinates of the task rows on screen
+    var listRect: CGRect = .zero            // the visible part of the task list
+    @Published var pointerRow: UUID? = nil
+
+    func updatePointerRow(at p: CGPoint) {
+        let row = state != .hidden && tab == .todo && listRect.contains(p)
+            ? rowRects.first(where: { $0.value.contains(p) })?.key : nil
+        if row != pointerRow { withAnimation(.easeOut(duration: 0.12)) { pointerRow = row } }
+    }
     var layoutChanged: (() -> Void)?
     /// The tallest the open note may be: what fits in its window and on its screen. Longer lists scroll.
     @Published var maxSheetHeight: CGFloat = 808
-    var hitRect: CGRect { state == .hidden ? tokenRect.insetBy(dx: -6, dy: -6) : sheetRect.insetBy(dx: -30, dy: -44) }
+    /// Where the note takes clicks; everywhere else in its big see-through window, clicks go to whatever is
+    /// underneath. Kept tight to the paper (a wider margin blocked buttons in apps next to the note), with
+    /// room above for the fastener.
+    var hitRect: CGRect {
+        if state == .hidden { return tokenRect.insetBy(dx: -6, dy: -6) }
+        let r = sheetRect
+        return CGRect(x: r.minX - 6, y: r.minY - 44, width: r.width + 12, height: r.height + 44 + 8)
+    }
     @Published var page = UUID()            // changes on restart so the old sheet can animate away
     @Published var undoable: [TodoItem]? = nil
     @Published var undoableNotes: NotepadDoc? = nil
@@ -367,7 +385,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel.hasShadow = false
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.isMovableByWindowBackground = true
+        // Off while the note is open: dragging the paper moves it (WindowDragGesture), and the AppKit
+        // version also grabbed drags meant for the reorder dots. The folded clip still drags this way.
+        panel.isMovableByWindowBackground = store.state == .hidden
         panel.hidesOnDeactivate = false
         host.frame = NSRect(origin: .zero, size: size)
         panel.contentView = host
@@ -389,7 +409,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // sheetRect is window-local, so it doesn't change when the hidden token is dragged:
         // check the fit on every open, not just when the note's layout changes.
         stateWatch = store.$state.dropFirst().sink { [weak self] state in   // skip the launch value: leave the token where it was saved
-            DispatchQueue.main.async { if state == .hidden { self?.returnHome() } else { self?.fitOnScreen() } }
+            DispatchQueue.main.async {
+                self?.panel.isMovableByWindowBackground = state == .hidden
+                if state == .hidden { self?.returnHome() } else { self?.fitOnScreen() }
+            }
         }
         panel.orderFrontRegardless()
         if store.isFirstRun {                     // a brand-new user: show the intro rather than a lone clip in the corner
@@ -403,11 +426,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self, let panel = self.panel else { return }
                 let p = panel.convertPoint(fromScreen: NSEvent.mouseLocation)
                 let flipped = CGPoint(x: p.x, y: panel.frame.height - p.y)
+                self.store.updatePointerRow(at: flipped)
+                // Mid-drag (reordering a task, moving the note), keep taking the mouse even if it leaves the note
+                if NSEvent.pressedMouseButtons != 0, !panel.ignoresMouseEvents { return }
                 panel.ignoresMouseEvents = !self.store.hitRect.contains(flipped)
             }
         }
         NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { track($0) }
         NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { track($0); return $0 }
+        // Scrolling moves tasks under a still mouse: check again once the list has moved
+        NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel]) { e in
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { track(nil) }; return e
+        }
         panel.acceptsMouseMovedEvents = true
         #if SNAPSHOT
         if let d = ProcessInfo.processInfo.environment["SPRITES_OUT"] { Snapshot.sprites(to: d); NSApp.terminate(nil) } else
