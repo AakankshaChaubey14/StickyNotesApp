@@ -20,10 +20,10 @@
 </p>
 
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/images/hero-dark.jpg">
-    <img src=".github/images/hero-light.jpg" width="420" alt="Sticky Note Scrapbook in the brass clip look: a torn-edged paper note with To-do and Notes tabs and two starter tips">
-  </picture>
+  <a href=".github/images/showcase.mp4">
+    <img src=".github/images/showcase.webp" width="720" alt="Sticky Note Scrapbook on a Mac desktop: the note opens from its clip, a notes page is written, tasks are added and ticked off, and the look switches from brass clip to wax seal">
+  </a><br>
+  <sub>Click to watch the full video</sub>
 </p>
 
 ## Install in 3 steps
