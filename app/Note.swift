@@ -181,6 +181,7 @@ struct NoteView: View {
         .onHover { h in withAnimation(Motion.ui) { fastenerHover = h } }
         .pointerStyle(.link)
         .onTapGesture { hide() }
+        .simultaneousGesture(WindowDragGesture(), including: drag == nil ? .all : .subviews)   // drag the note by its clip; a plain click still folds it
         .help("Hide note")
         .accessibilityAddTraits(.isButton)
         .accessibilityLabel("Hide note")
@@ -212,7 +213,7 @@ struct NoteView: View {
         .coordinateSpace(name: "card")
         .padding(theme.pad)
         .frame(width: theme.width, alignment: .leading)
-        .background(paper.gesture(WindowDragGesture()))
+        .background(paper.gesture(WindowDragGesture(), isEnabled: drag == nil))   // the note stays put while a task is dragged
         .overlay { decorations }
     }
 
@@ -430,6 +431,7 @@ struct NoteView: View {
                     .frame(width: 15, height: 15).contentShape(Rectangle())
             }
             .buttonStyle(PressScale())
+            .pointerStyle(.default)                       // a plain arrow: click, not drag
             .foregroundStyle(theme.inkColor.opacity(0.45))
             .padding(.top, theme.font.firstLineXMid - 7.5)
             .opacity(hoveredRow == item.id ? 1 : 0)       // shows on hover so the page stays clean
@@ -522,6 +524,7 @@ struct NoteView: View {
                     withAnimation(Motion.ui) { store.move(item.id, to: target); drag = nil }
                 } else { drag = nil }
             })
+        .pointerStyle(drag?.id == item.id ? .grabActive : .grabIdle)   // a hand: this one drags
         .help("Drag to reorder")
         .accessibilityLabel("Reorder task")
     }
