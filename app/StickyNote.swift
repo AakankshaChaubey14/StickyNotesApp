@@ -39,8 +39,18 @@ final class Store: ObservableObject {
     var sheetRect: CGRect = .zero { didSet { if sheetRect != oldValue { layoutChanged?() } } }
     // Which task the mouse is over, worked out from the mouse position (see `track` in the app delegate)
     // rather than SwiftUI hover, which macOS sometimes doesn't report as the mouse reaches a task's ×.
-    var rowRects: [UUID: CGRect] = [:]      // window coordinates of the task rows on screen
-    var listRect: CGRect = .zero            // the visible part of the task list
+    // When tasks move under a still mouse (one deleted, ticked or scrolled), check again which one it's over.
+    var rowRects: [UUID: CGRect] = [:] { didSet { pointerCheckSoon() } }   // window coordinates of the task rows on screen
+    var listRect: CGRect = .zero { didSet { if listRect != oldValue { pointerCheckSoon() } } }   // the visible part of the task list
+    var pointerCheck: (() -> Void)?
+    private var pointerCheckQueued = false
+    private func pointerCheckSoon() {
+        guard !pointerCheckQueued, pointerCheck != nil else { return }
+        pointerCheckQueued = true             // many rows report at once: check once, after they all have
+        DispatchQueue.main.async { [weak self] in
+            MainActor.assumeIsolated { self?.pointerCheckQueued = false; self?.pointerCheck?() }
+        }
+    }
     @Published var pointerRow: UUID? = nil
 
     func updatePointerRow(at p: CGPoint) {
@@ -434,10 +444,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { track($0) }
         NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { track($0); return $0 }
-        // Scrolling moves tasks under a still mouse: check again once the list has moved
-        NSEvent.addLocalMonitorForEvents(matching: [.scrollWheel]) { e in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { track(nil) }; return e
-        }
+        // Scrolling, deleting or ticking moves tasks under a still mouse: check again once they've moved
+        store.pointerCheck = { track(nil) }
         panel.acceptsMouseMovedEvents = true
         #if SNAPSHOT
         if let d = ProcessInfo.processInfo.environment["SPRITES_OUT"] { Snapshot.sprites(to: d); NSApp.terminate(nil) } else
